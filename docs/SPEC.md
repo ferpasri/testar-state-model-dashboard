@@ -1,0 +1,124 @@
+# Implemented dashboard behavior
+
+## Local import
+
+The dashboard accepts a selected model directory, or a parent directory containing several models. A model contains `manifest.json`, `evidence.jsonl`, and its referenced artifacts. Users can add sources to an existing workspace and remove them individually.
+
+Import validates data schema 2. The shared format is defined by the specs project; dashboard release numbers identify application releases separately.
+
+An import worker reads UTF-8 JSONL incrementally, validates record shapes, replays events in order, and verifies referenced artifact hashes. A complete final line ends with a newline. Failures identify the affected file and relevant record line. File-access failures identify the affected manifest, evidence log, or artifact and explain how to retry. A file that exists on disk can still be unavailable to the browser, including at long Windows paths. Copying the complete model to a shorter local path preserves its contents and source fingerprint.
+
+Import is atomic: a failed batch leaves the existing workspace intact. Canceling terminates the worker and discards that batch.
+
+## Evidence and identities
+
+| Component            | Responsibility                                                                          |
+| -------------------- | --------------------------------------------------------------------------------------- |
+| `evidence/schema.ts` | Validate the manifest, event forms, evaluation targets, readings, and named properties. |
+| `Replay`             | Validate references and execution lifecycle, then build the concrete in-memory model.   |
+| `importDirectory`    | Discover models, stream events, verify files, and assign source fingerprints.           |
+| `import.worker.ts`   | Run import outside interface interaction and report progress.                           |
+| `Graph`              | Draw observations and completed execution links.                                        |
+| `Details`            | Inspect screenshots, properties, widgets, evaluations, and executions.                  |
+| `App`                | Manage source/run selection, import lifecycle, and the timeline.                        |
+
+Each source fingerprint combines its manifest and the SHA-256 digest of the original JSONL bytes. Referenced artifacts are independently verified. Identical reimports share a source identity. Different evidence remains in separate sources even when record IDs collide.
+
+Replay checks run status, increasing observation sequences, candidate bindings, widget hierarchy, snapshot identity, submissions, forward execution links, and evaluation targets. An identical repeated event is idempotent; conflicting content is rejected. Finishing a run makes outstanding executions incomplete. Late check results remain valid.
+
+Properties and explicit null values are preserved. Large integer properties use exact integers internally and display their original numeric value. Observation sequence numbers and timestamps must fit JavaScript's safe integer range. Unsupported numeric precision is reported rather than silently accepted.
+
+## Inspection
+
+The timeline orders visits within the selected run. Selecting a visit updates the graph and inspector. Clicking an execution link opens its own inspector with the action, parameters, status, target widget, and source/result navigation. Selecting an observation returns to its observation inspector. Solid graph edges come from completed executions. Optional dashed links connect adjacent observations in the same run when no completed execution connects that pair. They show observation order only; they do not establish that an action happened. Clicking a dashed link opens an explanation and navigation to its endpoints. These links are derived for display and leave imported observations, executions, and source fingerprints intact. Graph windows do not create links across omitted visits. A run with repeated or visually identical visits retains each observation.
+
+The graph renders up to 1,000 observations around the selected visit. The timeline provides previous/next navigation through the complete run and displays a surrounding window of visits.
+
+The inspector shows PNG/JPEG screenshots, capture scope, state properties, candidate actions, widgets with parent references, evaluations, and associated executions. Widget text and properties are searchable. Lists and long property previews are bounded; their full underlying records remain in memory.
+
+Evaluation inspection includes results targeting the selected observation, its run, an associated execution, or a sequence containing it. Original targets remain visible. Status explanations describe the recorded oracle outcome; pending results on finished runs explicitly identify that the run has ended. A broad evaluation does not establish that individual widget properties were evaluated.
+
+Evaluation lists support passed, failed, pending, unknown, and error filters, with counts across the entire current list before pagination. Filtering changes the displayed results and preserves recorded coverage.
+
+The Coverage tab indexes direct observation, state-property, widget, and widget-property targets. Run, sequence, and execution targets retain their broader scope. Widget-level results do not mark all its properties evaluated. Every reported status counts as a recorded result, while passing and failing remain distinct outcomes. Coverage is specific to each observation and matches property names exactly, including separate aliases.
+
+Coverage lists captured state properties, widgets, and run visits without direct results. Missing results mean no evaluation was recorded for that target; source instrumentation may be incomplete. Absent or uncaptured property targets remain visible in Evaluations, while captured-property lists describe the available snapshot. Filters, capture limits, and unavailable data constrain any coverage interpretation.
+
+## Matching across runs
+
+The **Matching preview** view compares selected runs from the imported sources. Its shared evidence index scopes identities by source and by the record's run or observation where applicable. Reused IDs in independent sources remain separate. The index counts selected observations, widgets, referenced action definitions, and executions.
+
+Users choose a built-in preset or edit a JSON definition. Both paths use the same versioned interpreter. The definition selects state properties and optional widget properties, with ordered alternative names for each field. Comparison preserves exact JSON values, including large integers and explicit nulls. A missing optional property has its own representation. Missing required fields, unsuitable transform values, and observations without selected captured values produce unmatched explanations.
+
+Supported string transforms trim, collapse whitespace, lowercase, replace literal text, map chosen strings, and remove explicitly named semicolon path parameters, query parameters, or fragments from absolute URLs. Widget exclusions inspect original values using presence, equality, or text containment. Rules define whether excluded descendants remain, whether hierarchy participates, and whether captured order matters. Sorted collections preserve duplicate widget descriptions.
+
+Grouping uses exact equality of the resulting comparison representation. The default **Page address and title** preset requires `ui.url` and a string `ui.title`. It removes the address fragment and trims and collapses title whitespace while preserving case. Empty titles remain captured strings; missing or non-string titles produce unmatched explanations. Different normalized titles keep visits separate at the same address. **Page address** requires only the address. **Page and widget structure** compares address and title plus optional role, name/title, and tag descriptions as a sorted flat collection.
+
+Session parameters remain unless a rule explicitly removes them. The URL transform's `remove_path_parameters` lists exact, case-sensitive names and removes all matching semicolon parameters in every path segment. Names are percent-decoded once after splitting literal semicolons; malformed encodings remain unchanged. Values and unrelated parameters keep their encoding and order. Query parameters and fragments use their separate options. The full captured `ui.url` and `ui.title` remain unchanged in the source model.
+
+The `capture: "same"` setting compares recorded capture statuses; equivalent statuses do not establish equivalent producer capture scopes. A policy that compares widgets leaves observations with unavailable widget captures unmatched.
+
+Matching groups retain original source, run, observation, and widget references. Widget correspondences describe equal projected descriptions with captured selected values, including ambiguity when several widgets in one visit share a description. They do not establish persistent widget identity. Users can filter groups to different runs, repeated visits, or all groups, and open any original visit in the trace inspector.
+
+The preview records its full definition, SHA-256 policy fingerprint, interpreter version, selected runs, and source fingerprints. **Download rules** exports the definition; **Download preview** exports that result and its explanations and mappings. Exports contain references and comparison values, so the original evidence is still needed for screenshots and full inspection.
+
+Matching runs in a separate browser worker with progress and cancellation. Editing the definition or run selection invalidates the previous preview. Changing imported sources also invalidates its input scope. Errors preserve the imported evidence.
+
+| Matching limit                         | Value   |
+| -------------------------------------- | ------- |
+| JSON definition                        | 64 KiB  |
+| Selected observations                  | 10,000  |
+| Widgets in selected observations       | 100,000 |
+| Widget hierarchy depth                 | 128     |
+| Individual normalized comparison value | 1 MiB   |
+| Total comparison representations       | 32 MiB  |
+| Fields per state/widget section        | 32      |
+| Alternative property names per field   | 8       |
+| Transforms per field                   | 12      |
+| Widget exclusion rules                 | 32      |
+
+Matching changes the analysis view. It preserves recorded executions, observation-order links, original evaluation targets, and observation-specific coverage. See [matching rules and examples](abstraction.md).
+
+## Derived state model
+
+After previewing matches, users can switch between **Matching groups** and **Derived model**. Derivation runs in the matching worker and uses the same selected evidence and policy. Source fingerprints and run references are checked before building the model.
+
+Each matching group becomes a node, including groups with one visit. Each unmatched observation receives its own node and explanation. Every selected observation remains represented.
+
+Completed executions produce directed edges. Executions share an edge when their ordered endpoint nodes and exact original action kind agree. Reverse directions remain separate; executions within one node become self-loops. Each edge retains source/run/execution references, with original action IDs, widget targets, and parameters available through those references. This summarizes action kinds while preserving the individual executions.
+
+Observation-order links remain a separate dashed edge type and retain their original endpoint pairs within each run. They do not establish completed executions. Selected, submitted, rejected, incomplete, and unusable result executions remain in a separate list with their recorded status and an explanation.
+
+Clicking a node or edge selects its inspector; keyboard-accessible state and link lists provide the same navigation. Node inspection shows the matching values, original visits, and up to four original screenshots when expanded. Execution-edge inspection lists its contributing executions and links to the original execution inspector. Order-link inspection opens its original endpoint observations.
+
+**Highlight source** and **Highlight run** emphasize supporting nodes and edges while leaving the remaining topology visible. Counts retain the full model scope. Paths through grouped states can combine evidence from several runs; a displayed path does not itself establish one recorded sequence. **Fit model** fits the visible graph window.
+
+The graph displays a window of up to 500 states and 2,000 links. Selecting a state or link from the lists brings it or its endpoints into that window. Lists expand in bounded batches; the complete derived model remains available in memory and in downloads.
+
+**Download model** exports the definition, policy fingerprint, interpreter version, input scope, and derived model with its original-record references. Original screenshots and full records remain in the imported source folders. The graph preserves observation-specific evaluation targets and coverage.
+
+## Privacy and limits
+
+Runtime processing stays in the browser. Imported URLs and strings are displayed as evidence. Screenshots use local object URLs, which are revoked when released. Production policy restricts network connections and external resources; the application bundles its scripts and styles. Configure the hosting server to send the security headers defined in the Vite preview configuration on every response, including worker scripts. Local development permits its loopback WebSocket for live updates.
+
+Import verifies artifact hashes and checks PNG/JPEG headers and pixel limits before preview. The browser performs image decoding and reports preview failures. Other artifact media types retain their references without active previews.
+
+| Limit                          | Value                                             |
+| ------------------------------ | ------------------------------------------------- |
+| Files selected per import      | 10,000                                            |
+| Total selected bytes           | 256 MiB                                           |
+| JSONL bytes per model          | 128 MiB                                           |
+| Manifest or JSONL record       | 2 MiB                                             |
+| Records per JSONL file         | 100,000                                           |
+| Individual referenced artifact | 32 MiB                                            |
+| JSON nesting                   | 48 levels                                         |
+| Preview image                  | 16 million pixels                                 |
+| Workspace                      | 20 sources and 512 MiB of referenced source files |
+
+These file-size limits bound input, rather than promising the same amount of browser memory use. The workspace lives in memory and is cleared when the page reloads.
+
+## Verification
+
+Development tooling downloads the newest published specs release, including prereleases, and records its selection and file hashes under ignored `.cache/specs/`. Tests validate that cache and discover all released conformance cases. Preparation checks the network; subsequent tests use the selected data offline.
+
+Unit tests cover accepted/rejected cases, accepted prefixes, replay behavior, identities, integrity, exact numbers, unsafe input, and matching policies. Matching checks include scoped identities, normalization, widget filtering, hierarchy, missing values, membership, provenance, and processing limits. Browser tests exercise the production build, including directory selection, screenshots, malformed labels, independent sources, mobile layout, cancellation, matching and derived-model navigation, and the runtime network boundary.
