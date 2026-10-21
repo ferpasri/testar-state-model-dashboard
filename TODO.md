@@ -29,6 +29,8 @@
 - [x] Add a combined graph whose grouped states and transitions link back to original evidence.
 - [x] Retain unmatched visits, incomplete executions, and distinct observation-order links in the derived view.
 - [x] Highlight source/run support and inspect original visits, screenshots, and executions.
+- [x] Offer layout, label, count, and dimming controls while preserving positions during highlighting and filtering.
+- [x] Filter a derived view and its inspector to a source/run contribution while retaining the full model.
 - [x] Export the derived model with its matching policy, input fingerprints, and original references.
 - [ ] Configure action grouping separately and derive transitions from recorded executions.
 - [ ] Add further normalization operations and similarity algorithms as evidence needs become clear.
@@ -39,6 +41,11 @@
 - [ ] Define document and section associations with the specs project.
 - [ ] Introduce safe previews for selected documentation and BDD formats.
 - [ ] Define workspace export/import and user-controlled browser persistence.
+
+## Capture and evaluation coverage
+
+- [ ] Distinguish top-level property containers from their nested fields, and show capture scope and omissions when comparing evidence across tools.
+- [ ] Make unresolved temporal conditions and any producer-supplied end-of-run assessments clearer, preserving their sequence scope and the distinction between no recorded evaluation and never evaluated.
 
 ## Distribution and maintenance
 

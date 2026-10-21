@@ -233,6 +233,7 @@ test("selects a recorded transition directly on the derived-model canvas", async
     const transition = page.locator('.derived-edge[data-kind="execution"]');
     await expect(transition).toHaveCount(1);
     const graph = page.getByRole("region", { name: "Derived model graph", exact: true });
+    await page.getByLabel("Model layout", { exact: true }).selectOption("hierarchical");
     await graph.getByRole("button", { name: "Fit model", exact: true }).click();
     const canvas = graph.locator(".derived-graph");
     const bounds = await canvas.boundingBox();

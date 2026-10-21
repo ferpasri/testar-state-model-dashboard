@@ -1048,6 +1048,45 @@ textarea:focus-visible {
 .derived-controls > p {
     margin: 0;
 }
+.derived-render-controls {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: start;
+    gap: 16px 24px;
+    margin: 0 0 20px;
+}
+.derived-render-controls legend {
+    padding: 0 8px;
+    font-size: 13px;
+    font-weight: 700;
+}
+.derived-render-controls > .search-label {
+    margin: 0;
+}
+.derived-display-options {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+.derived-dimming {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    gap: 8px;
+}
+.derived-dimming input {
+    width: 100%;
+    min-width: 0;
+    grid-column: 1 / -1;
+    accent-color: #17434a;
+}
+.derived-dimming output {
+    font-variant-numeric: tabular-nums;
+}
+.derived-render-controls > p {
+    margin: 0;
+    font-size: 11px;
+    line-height: 1.6;
+}
 .derived-layout {
     display: grid;
     grid-template-columns: minmax(0, 1.5fr) minmax(290px, 1fr);
@@ -1126,10 +1165,6 @@ textarea:focus-visible {
     border-style: dashed;
     border-color: #8a9292;
 }
-.derived-node.not-highlighted,
-.derived-edge.not-highlighted {
-    opacity: 0.45;
-}
 .derived-member,
 .derived-execution,
 .derived-order-link {
@@ -1160,11 +1195,15 @@ textarea:focus-visible {
 }
 @media (max-width: 650px) {
     .derived-controls,
+    .derived-render-controls,
     .derived-lists {
         grid-template-columns: minmax(0, 1fr);
     }
     .derived-graph {
         height: 380px;
+    }
+    .derived-main .panel-heading {
+        flex-wrap: wrap;
     }
     .result-views > .quiet {
         margin-left: 0;

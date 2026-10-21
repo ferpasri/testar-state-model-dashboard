@@ -37,7 +37,17 @@ Solid arrows summarize completed recorded executions. Executions are combined in
 
 An execution can produce a loop when both visits belong to the same node. Dashed arrows show consecutive observations whose connecting action is unknown. Selected, rejected, or incomplete executions remain available for inspection without inventing a completed transition.
 
-Click a graph node or arrow, or select it from the corresponding list, to inspect its evidence. **Highlight source** and **Highlight run** emphasize the contributing evidence while keeping the whole model visible. A path through merged nodes may combine edges from different runs; inspect its supporting executions before treating it as one recorded sequence.
+Click a graph node or arrow, or select it from the corresponding list, to inspect its evidence. A path through merged nodes may combine edges from different runs; inspect its supporting executions before treating it as one recorded sequence.
+
+**Model layout** offers **Force-directed**, **Hierarchical**, and **Circular** arrangements. Choose another layout or use **Reapply layout** to reposition the graph. **Fit model** fits the current graph window. Toggle state labels, action labels, and execution counts to control how much text appears.
+
+**Highlight source** and **Highlight run** emphasize their supporting evidence. Use **Dim other evidence** to adjust the fading while keeping the whole model available. Existing node positions stay stable when highlighting, changing labels or dimming, toggling order links, or filtering evidence.
+
+With a source or run chosen, **Show only selected source/run** limits the view to its contribution. A shared state remains when it contains a visit from that scope. The state counts, execution counts, and inspector lists then describe only the selected evidence. Other observations remain in the full model and its download. Highlighting without this checkbox keeps the complete model's counts and inspector lists.
+
+The graph shows a bounded window. If selected evidence lies outside it, choose a state or link from the lists to load a new window with the chosen layout. Highlighting and filtering keep the current window in place.
+
+These layout and display settings apply to the current derived view in browser memory. The matching rules, original evidence, and downloaded model retain their full scope.
 
 A grouped node can contain observations with different screenshots and oracle results. Open the original visits to inspect those differences. Coverage remains attached to each original observation and target.
 

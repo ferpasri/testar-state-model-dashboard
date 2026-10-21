@@ -8,6 +8,8 @@ import type {
 import { runKey } from "./analysis";
 import { derivedWindow, evidenceLabel } from "./derived-presentation";
 import { DerivedInspector } from "./DerivedInspector";
+import { filterDerivedModel } from "./derived-filter";
+import { DEFAULT_RENDERING, DerivedRenderControls } from "./DerivedRenderControls";
 import type { ImportedSource } from "./evidence/import";
 
 const DerivedGraph = lazy(() =>
@@ -35,50 +37,75 @@ export function DerivedModelView({
 }: Props) {
     const [selectedNode, setSelectedNode] = useState(model.nodes[0]?.id ?? "");
     const [selectedEdge, setSelectedEdge] = useState("");
+    const [focus, setFocus] = useState({ node: model.nodes[0]?.id ?? "", edge: "" });
+    const [options, setOptions] = useState(DEFAULT_RENDERING);
+    const [showOnlySelected, setShowOnlySelected] = useState(false);
     const [showOrderLinks, setShowOrderLinks] = useState(true);
     const [sourceFilter, setSourceFilter] = useState("all");
     const [runFilter, setRunFilter] = useState("all");
     const [nodeLimit, setNodeLimit] = useState(50);
     const [edgeLimit, setEdgeLimit] = useState(50);
     const [unlinkedLimit, setUnlinkedLimit] = useState(20);
-    const selectNode = useCallback((id: string) => {
-        setSelectedNode(id);
-        setSelectedEdge("");
-    }, []);
-    const selectEdge = useCallback((id: string) => {
-        setSelectedEdge(id);
-        setSelectedNode("");
-    }, []);
-    const edges = useMemo(
-        () => model.edges.filter((edge) => showOrderLinks || edge.kind === "execution"),
-        [model, showOrderLinks],
+    const scopedModel = useMemo(
+        () => filterDerivedModel(model, { source: sourceFilter, run: runFilter }),
+        [model, sourceFilter, runFilter],
     );
-    const window = useMemo(
-        () => derivedWindow(model.nodes, edges, selectedNode, selectedEdge),
-        [model, edges, selectedNode, selectedEdge],
-    );
-    const highlighted = useMemo(() => {
-        const supports = (reference: Pick<EvidenceReference, "source" | "run">) =>
-            (sourceFilter === "all" || sourceFilter === reference.source) &&
-            (runFilter === "all" || runFilter === runKey(reference.source, reference.run));
-        return {
-            nodes: new Set(
-                model.nodes.filter((node) => node.members.some(supports)).map((node) => node.id),
-            ),
-            edges: new Set(
-                model.edges
-                    .filter(
-                        (edge) =>
-                            edge.executions.some(supports) ||
-                            edge.orderLinks.some((link) => supports(link.source)),
-                    )
-                    .map((edge) => edge.id),
-            ),
-        };
-    }, [model, sourceFilter, runFilter]);
     const highlighting = sourceFilter !== "all" || runFilter !== "all";
+    const displayModel = showOnlySelected && highlighting ? scopedModel : model;
+    const edges = useMemo(
+        () => displayModel.edges.filter((edge) => showOrderLinks || edge.kind === "execution"),
+        [displayModel, showOrderLinks],
+    );
+    // Keep the graph window independent of rendering filters so positions remain comparable.
+    const window = useMemo(
+        () => derivedWindow(model.nodes, model.edges, focus.node, focus.edge),
+        [model, focus],
+    );
+    const windowNodeIds = useMemo(
+        () => new Set(window.nodes.map((item) => item.id)),
+        [window.nodes],
+    );
+    const windowEdgeIds = useMemo(
+        () => new Set(window.edges.map((item) => item.id)),
+        [window.edges],
+    );
+    const selectNode = useCallback(
+        (id: string) => {
+            setSelectedNode(id);
+            setSelectedEdge("");
+            if (!windowNodeIds.has(id)) {
+                setFocus({ node: id, edge: "" });
+            }
+        },
+        [windowNodeIds],
+    );
+    const selectEdge = useCallback(
+        (id: string) => {
+            setSelectedEdge(id);
+            setSelectedNode("");
+            if (!windowEdgeIds.has(id)) {
+                setFocus({ node: "", edge: id });
+            }
+        },
+        [windowEdgeIds],
+    );
+    const highlighted = useMemo(
+        () => ({
+            nodes: new Set(scopedModel.nodes.map((node) => node.id)),
+            edges: new Set(scopedModel.edges.map((edge) => edge.id)),
+        }),
+        [scopedModel],
+    );
+    const visibleNodes = useMemo(
+        () => new Set(displayModel.nodes.map((node) => node.id)),
+        [displayModel],
+    );
+    const visibleEdges = useMemo(() => new Set(edges.map((edge) => edge.id)), [edges]);
+    const visibleNodeCount = window.nodes.filter((node) => visibleNodes.has(node.id)).length;
+    const visibleEdgeCount = window.edges.filter((edge) => visibleEdges.has(edge.id)).length;
+    const dimmedOpacity = (100 - options.dimOtherEvidence) / 100;
     const selected = edges.find((edge) => edge.id === selectedEdge);
-    const node = model.nodes.find((item) => item.id === selectedNode);
+    const node = displayModel.nodes.find((item) => item.id === selectedNode);
     const labels = useMemo(
         () => new Map(model.nodes.map((item) => [item.id, item.label])),
         [model],
@@ -149,17 +176,37 @@ export function DerivedModelView({
                     />
                     Show observation-order links
                 </label>
+                <label className="compact-toggle">
+                    <input
+                        type="checkbox"
+                        checked={showOnlySelected}
+                        onChange={(event) => setShowOnlySelected(event.target.checked)}
+                    />
+                    Show only selected source/run
+                </label>
                 {highlighting && (
                     <p className="muted">
                         Highlighted: {highlighted.nodes.size} states / {highlighted.edges.size}{" "}
-                        links. Other evidence remains visible.
+                        links.{" "}
+                        {showOnlySelected
+                            ? "Only supporting evidence is shown."
+                            : "Other evidence remains visible."}
                     </p>
                 )}
             </div>
-            {(window.nodes.length < model.nodes.length || window.edges.length < edges.length) && (
+            <DerivedRenderControls options={options} onChange={setOptions} />
+            {showOnlySelected && highlighting && (
+                <p className="derived-scope-summary notice">
+                    Selected source/run: {displayModel.nodes.length} states,{" "}
+                    {displayModel.counts.observations} visits,{" "}
+                    {displayModel.counts.completedExecutions} completed executions. Counts and
+                    inspection below use this selection; model downloads retain the complete model.
+                </p>
+            )}
+            {(visibleNodeCount < displayModel.nodes.length || visibleEdgeCount < edges.length) && (
                 <p className="notice">
-                    Graph window: {window.nodes.length} of {model.nodes.length} states and{" "}
-                    {window.edges.length} of {edges.length} links. Select any state or transition in
+                    Graph window: {visibleNodeCount} of {displayModel.nodes.length} states and{" "}
+                    {visibleEdgeCount} of {edges.length} links. Select any state or transition in
                     the lists to bring its endpoints into view.
                 </p>
             )}
@@ -169,8 +216,12 @@ export function DerivedModelView({
                         <DerivedGraph
                             nodes={window.nodes}
                             edges={window.edges}
-                            selectedNode={selectedNode}
-                            selectedEdge={selectedEdge}
+                            displayModel={displayModel}
+                            visibleNodes={visibleNodes}
+                            visibleEdges={visibleEdges}
+                            options={options}
+                            selectedNode={node?.id ?? ""}
+                            selectedEdge={selected?.id ?? ""}
                             highlightedNodes={highlighted.nodes}
                             highlightedEdges={highlighted.edges}
                             highlighting={highlighting}
@@ -181,9 +232,9 @@ export function DerivedModelView({
                     </Suspense>
                     <div className="derived-lists">
                         <section className="matching-panel">
-                            <h3>States ({model.nodes.length})</h3>
+                            <h3>States ({displayModel.nodes.length})</h3>
                             <div className="derived-list">
-                                {model.nodes.slice(0, nodeLimit).map((item) => (
+                                {displayModel.nodes.slice(0, nodeLimit).map((item) => (
                                     <button
                                         className={
                                             "derived-node" +
@@ -191,6 +242,12 @@ export function DerivedModelView({
                                                 ? " not-highlighted"
                                                 : "")
                                         }
+                                        style={{
+                                            opacity:
+                                                highlighting && !highlighted.nodes.has(item.id)
+                                                    ? dimmedOpacity
+                                                    : 1,
+                                        }}
                                         key={item.id}
                                         aria-pressed={item.id === selectedNode}
                                         onClick={() => selectNode(item.id)}
@@ -203,7 +260,7 @@ export function DerivedModelView({
                                     </button>
                                 ))}
                             </div>
-                            {model.nodes.length > nodeLimit && (
+                            {displayModel.nodes.length > nodeLimit && (
                                 <button
                                     className="quiet"
                                     onClick={() => setNodeLimit(nodeLimit + 50)}
@@ -223,6 +280,12 @@ export function DerivedModelView({
                                                 ? " not-highlighted"
                                                 : "")
                                         }
+                                        style={{
+                                            opacity:
+                                                highlighting && !highlighted.edges.has(edge.id)
+                                                    ? dimmedOpacity
+                                                    : 1,
+                                        }}
                                         data-kind={edge.kind}
                                         key={edge.id}
                                         aria-pressed={edge.id === selectedEdge}
@@ -251,13 +314,13 @@ export function DerivedModelView({
                             )}
                         </section>
                     </div>
-                    {model.unlinkedExecutions.length > 0 && (
+                    {displayModel.unlinkedExecutions.length > 0 && (
                         <details className="matching-panel derived-unlinked">
                             <summary>
                                 Executions without a connected result (
-                                {model.unlinkedExecutions.length})
+                                {displayModel.unlinkedExecutions.length})
                             </summary>
-                            {model.unlinkedExecutions.slice(0, unlinkedLimit).map((item) => (
+                            {displayModel.unlinkedExecutions.slice(0, unlinkedLimit).map((item) => (
                                 <article
                                     className="derived-execution"
                                     key={JSON.stringify(item.reference)}
@@ -274,7 +337,7 @@ export function DerivedModelView({
                                     </button>
                                 </article>
                             ))}
-                            {model.unlinkedExecutions.length > unlinkedLimit && (
+                            {displayModel.unlinkedExecutions.length > unlinkedLimit && (
                                 <button
                                     className="quiet"
                                     onClick={() => setUnlinkedLimit(unlinkedLimit + 20)}
@@ -288,7 +351,7 @@ export function DerivedModelView({
                 <DerivedInspector
                     node={node}
                     edge={selected}
-                    model={model}
+                    model={displayModel}
                     preview={preview}
                     sources={sources}
                     onOpenObservation={onOpenObservation}

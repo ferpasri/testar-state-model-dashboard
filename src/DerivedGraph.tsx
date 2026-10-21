@@ -1,28 +1,72 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import cytoscape from "cytoscape";
-import type { DerivedEdge, DerivedNode } from "./analysis";
+import type { DerivedEdge, DerivedModel, DerivedNode } from "./analysis";
+import type { ModelLayout, RenderingOptions } from "./DerivedRenderControls";
 
 interface Props {
     nodes: DerivedNode[];
     edges: DerivedEdge[];
+    displayModel: DerivedModel;
+    visibleNodes: Set<string>;
+    visibleEdges: Set<string>;
     selectedNode: string;
     selectedEdge: string;
     highlightedNodes: Set<string>;
     highlightedEdges: Set<string>;
     highlighting: boolean;
+    options: RenderingOptions;
     active: boolean;
     onSelectNode: (id: string) => void;
     onSelectEdge: (id: string) => void;
 }
 
+function layoutOptions(layout: ModelLayout): cytoscape.LayoutOptions {
+    if (layout === "hierarchical") {
+        return {
+            name: "breadthfirst",
+            directed: true,
+            spacingFactor: 1.5,
+            padding: 40,
+            animate: false,
+        };
+    }
+    if (layout === "circular") {
+        return {
+            name: "circle",
+            padding: 40,
+            avoidOverlap: true,
+            spacingFactor: 1.4,
+            animate: false,
+        };
+    }
+    return {
+        name: "cose",
+        padding: 40,
+        animate: false,
+        randomize: true,
+        componentSpacing: 100,
+        nodeRepulsion: () => 450000,
+        idealEdgeLength: () => 150,
+        edgeElasticity: () => 100,
+        numIter: 400,
+        initialTemp: 200,
+        coolingFactor: 0.95,
+        minTemp: 1,
+    };
+}
+
 export function DerivedGraph({
     nodes,
     edges,
+    displayModel,
+    visibleNodes,
+    visibleEdges,
     selectedNode,
     selectedEdge,
     highlightedNodes,
     highlightedEdges,
     highlighting,
+    options,
     active,
     onSelectNode,
     onSelectEdge,
@@ -30,6 +74,7 @@ export function DerivedGraph({
     const container = useRef<HTMLDivElement>(null);
     const graph = useRef<cytoscape.Core | null>(null);
     const previousSelection = useRef("");
+    const [layoutRevision, setLayoutRevision] = useState(0);
     useEffect(() => {
         if (!container.current) {
             return;
@@ -37,11 +82,7 @@ export function DerivedGraph({
         const identities = new Map(nodes.map((node, index) => [node.id, "dn" + index]));
         const elements: cytoscape.ElementDefinition[] = nodes.map((node, index) => ({
             classes: node.unmatchedReason ? "unmatched" : "",
-            data: {
-                id: "dn" + index,
-                nodeId: node.id,
-                label: node.label.slice(0, 80) + "\n" + node.members.length + " visits",
-            },
+            data: { id: "dn" + index, nodeId: node.id, renderLabel: "" },
         }));
         edges.forEach((edge, index) => {
             elements.push({
@@ -51,16 +92,7 @@ export function DerivedGraph({
                     edgeId: edge.id,
                     source: identities.get(edge.source),
                     target: identities.get(edge.target),
-                    label:
-                        (edge.kind === "execution"
-                            ? (edge.actionKind ?? "Action")
-                            : "Observation order"
-                        ).slice(0, 45) +
-                        " (" +
-                        (edge.kind === "execution"
-                            ? edge.executions.length
-                            : edge.orderLinks.length) +
-                        ")",
+                    renderLabel: "",
                 },
             });
         });
@@ -69,13 +101,7 @@ export function DerivedGraph({
             elements,
             minZoom: 0.05,
             maxZoom: 3,
-            layout: {
-                name: "breadthfirst",
-                directed: true,
-                spacingFactor: 1.5,
-                padding: 40,
-                animate: false,
-            },
+            layout: { name: "preset" },
             style: [
                 {
                     selector: "node",
@@ -83,7 +109,7 @@ export function DerivedGraph({
                         shape: "round-rectangle",
                         width: 160,
                         height: 62,
-                        label: "data(label)",
+                        label: "data(renderLabel)",
                         "font-size": 10,
                         "text-valign": "center",
                         "text-wrap": "wrap",
@@ -113,7 +139,7 @@ export function DerivedGraph({
                         "curve-style": "bezier",
                         "loop-direction": "-45deg",
                         "loop-sweep": "65deg",
-                        label: "data(label)",
+                        label: "data(renderLabel)",
                         "font-size": 9,
                         "text-events": "yes",
                         color: "#355d58",
@@ -132,7 +158,6 @@ export function DerivedGraph({
                         color: "#657070",
                     },
                 },
-                { selector: ".dimmed", style: { opacity: 0.18 } },
                 {
                     selector: "node:selected",
                     style: {
@@ -140,7 +165,6 @@ export function DerivedGraph({
                         color: "#ffffff",
                         "border-width": 3,
                         "border-color": "#d98460",
-                        opacity: 1,
                     },
                 },
                 {
@@ -150,7 +174,6 @@ export function DerivedGraph({
                         "line-color": "#b76e4d",
                         "target-arrow-color": "#b76e4d",
                         color: "#823e2e",
-                        opacity: 1,
                     },
                 },
             ],
@@ -172,21 +195,71 @@ export function DerivedGraph({
         if (!instance) {
             return;
         }
+        const nodeDescriptions = new Map(displayModel.nodes.map((node) => [node.id, node]));
+        const edgeDescriptions = new Map(displayModel.edges.map((edge) => [edge.id, edge]));
+        const dimmedOpacity = (100 - options.dimOtherEvidence) / 100;
         instance.batch(() => {
-            instance.nodes().forEach((node) => {
-                node.toggleClass(
-                    "dimmed",
-                    highlighting && !highlightedNodes.has(node.data("nodeId")),
+            instance.nodes().forEach((element) => {
+                const id = element.data("nodeId") as string;
+                const node = nodeDescriptions.get(id);
+                element.style("display", visibleNodes.has(id) ? "element" : "none");
+                element.toggleClass("dimmed", highlighting && !highlightedNodes.has(id));
+                element.style(
+                    "opacity",
+                    highlighting && !highlightedNodes.has(id) ? dimmedOpacity : 1,
+                );
+                element.data(
+                    "renderLabel",
+                    options.showStateLabels && node
+                        ? node.label.slice(0, 80) + "\n" + node.members.length + " visits"
+                        : "",
                 );
             });
-            instance.edges().forEach((edge) => {
-                edge.toggleClass(
-                    "dimmed",
-                    highlighting && !highlightedEdges.has(edge.data("edgeId")),
+            instance.edges().forEach((element) => {
+                const id = element.data("edgeId") as string;
+                const edge = edgeDescriptions.get(id);
+                element.style("display", visibleEdges.has(id) ? "element" : "none");
+                element.toggleClass("dimmed", highlighting && !highlightedEdges.has(id));
+                element.style(
+                    "opacity",
+                    highlighting && !highlightedEdges.has(id) ? dimmedOpacity : 1,
                 );
+                const name =
+                    edge?.kind === "execution"
+                        ? (edge.actionKind ?? "Action")
+                        : "Observation order";
+                const count =
+                    edge?.kind === "execution"
+                        ? edge.executions.length
+                        : (edge?.orderLinks.length ?? 0);
+                const parts = [];
+                if (options.showActionLabels) {
+                    parts.push(name.slice(0, 45));
+                }
+                if (options.showExecutionCounts) {
+                    parts.push("(" + count + ")");
+                }
+                element.data("renderLabel", parts.join(" "));
             });
         });
-    }, [highlightedNodes, highlightedEdges, highlighting, nodes, edges]);
+    }, [
+        displayModel,
+        visibleNodes,
+        visibleEdges,
+        highlightedNodes,
+        highlightedEdges,
+        highlighting,
+        options,
+        nodes,
+        edges,
+    ]);
+
+    useEffect(() => {
+        const instance = graph.current;
+        if (instance && instance.elements(":visible").nodes().length > 0) {
+            instance.elements(":visible").layout(layoutOptions(options.layout)).run();
+        }
+    }, [options.layout, layoutRevision, nodes, edges]);
 
     useEffect(() => {
         const instance = graph.current;
@@ -214,9 +287,15 @@ export function DerivedGraph({
     useEffect(() => {
         if (active) {
             graph.current?.resize();
-            graph.current?.fit(undefined, 40);
         }
-    }, [active, nodes, edges]);
+    }, [active]);
+
+    function fitVisible() {
+        const instance = graph.current;
+        if (instance && instance.elements(":visible").nodes().length > 0) {
+            instance.fit(instance.elements(":visible"), 40);
+        }
+    }
 
     return (
         <section className="graph-panel" aria-label="Derived model graph">
@@ -225,9 +304,14 @@ export function DerivedGraph({
                     <span className="eyebrow">GROUPS AND RECORDED LINKS</span>
                     <h2>Derived state model</h2>
                 </div>
-                <button className="quiet" onClick={() => graph.current?.fit(undefined, 40)}>
-                    Fit model
-                </button>
+                <div className="graph-options">
+                    <button className="quiet" onClick={() => setLayoutRevision(layoutRevision + 1)}>
+                        Reapply layout
+                    </button>
+                    <button className="quiet" onClick={fitVisible}>
+                        Fit model
+                    </button>
+                </div>
             </div>
             <div
                 className="derived-graph"

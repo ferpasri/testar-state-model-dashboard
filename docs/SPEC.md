@@ -91,9 +91,15 @@ Observation-order links remain a separate dashed edge type and retain their orig
 
 Clicking a node or edge selects its inspector; keyboard-accessible state and link lists provide the same navigation. Node inspection shows the matching values, original visits, and up to four original screenshots when expanded. Execution-edge inspection lists its contributing executions and links to the original execution inspector. Order-link inspection opens its original endpoint observations.
 
-**Highlight source** and **Highlight run** emphasize supporting nodes and edges while leaving the remaining topology visible. Counts retain the full model scope. Paths through grouped states can combine evidence from several runs; a displayed path does not itself establish one recorded sequence. **Fit model** fits the visible graph window.
+**Highlight source** and **Highlight run** emphasize supporting nodes and edges. A dimming control adjusts other evidence's opacity. With highlighting alone, counts and inspector lists retain the full model scope. Paths through grouped states can combine evidence from several runs; a displayed path does not itself establish one recorded sequence.
 
-The graph displays a window of up to 500 states and 2,000 links. Selecting a state or link from the lists brings it or its endpoints into that window. Lists expand in bounded batches; the complete derived model remains available in memory and in downloads.
+**Show only selected source/run** filters the derived view using original evidence references. A node remains when a selected source/run contributed one of its observations. An edge remains when a completed execution or observation-order pair supports it in that scope. Node members, edge references, counts, screenshot choices, and inspector lists are restricted to the selected contribution. The full-model summary and model download preserve the complete derivation.
+
+**Model layout** offers **Force-directed** (the default), **Hierarchical**, and **Circular** arrangements. Selecting or reapplying a layout intentionally repositions nodes. Highlighting, dimming, label toggles, order-link visibility, and evidence filtering preserve existing positions. State labels, action labels, and execution counts can be shown separately. **Fit model** fits the visible graph window.
+
+Layout, label, dimming, and filtering settings live in memory for the current derived view. They change presentation while the matching definition, original records, and downloaded model retain their full scope.
+
+The graph displays a window of up to 500 states and 2,000 links. Highlighting and filtering retain that window, even when selected evidence lies outside it. Selecting an outside state or link from the lists loads a new window containing it or its endpoints and applies the chosen layout. Lists expand in bounded batches; the complete derived model remains available in memory and in downloads.
 
 **Download model** exports the definition, policy fingerprint, interpreter version, input scope, and derived model with its original-record references. Original screenshots and full records remain in the imported source folders. The graph preserves observation-specific evaluation targets and coverage.
 
