@@ -1,3 +1,4 @@
+import { propertyGroups } from "./property-evidence";
 import type { EvidenceModel } from "./model";
 import type { Observation } from "./schema";
 
@@ -77,5 +78,7 @@ export function propertiesWithoutResults(
     properties: Record<string, unknown>,
     results: Map<string, number>,
 ): string[] {
-    return Object.keys(properties).filter((name) => !results.has(name));
+    return propertyGroups(properties, results)
+        .filter((group) => group.results === 0)
+        .map((group) => group.name);
 }

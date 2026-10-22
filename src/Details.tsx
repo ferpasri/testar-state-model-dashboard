@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { canonical, displayValue, formatJson } from "./evidence/common";
 import { Properties } from "./EvidenceFields";
+import { CaptureDescription, PropertyCaptureInformation } from "./CaptureInformation";
 import { EvaluationList } from "./EvaluationList";
 import { EvaluationCoverage } from "./EvaluationCoverage";
 import type { ImportedSource } from "./evidence/import";
@@ -151,6 +152,8 @@ export function Details({
                                 sequence={observation.sequence}
                             />
                         ))}
+                        <CaptureDescription properties={observation.state.properties} />
+                        <PropertyCaptureInformation properties={observation.state.properties} />
                         <h3>Captured properties</h3>
                         <Properties
                             values={Object.fromEntries(
@@ -215,6 +218,7 @@ export function Details({
                                             widget.id,
                                     ).slice(0, 100) || widget.id}
                                 </summary>
+                                <PropertyCaptureInformation properties={widget.properties} />
                                 <Properties
                                     values={{
                                         id: widget.id,

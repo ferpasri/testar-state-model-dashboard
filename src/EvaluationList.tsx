@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
+import { assessmentContext } from "./evidence/assessment";
 import { Evaluation } from "./EvidenceFields";
 import type { EvidenceModel } from "./evidence/model";
 import type { Check } from "./evidence/schema";
@@ -13,8 +14,9 @@ export function EvaluationList({
     model: EvidenceModel;
 }) {
     const [status, setStatus] = useState<Check["status"] | "all">("all");
+    const [phase, setPhase] = useState("all");
     const [limit, setLimit] = useState(50);
-    useEffect(() => setLimit(50), [checks, status]);
+    useEffect(() => setLimit(50), [checks, status, phase]);
     const counts = useMemo(() => {
         const values = new Map<Check["status"], number>();
         for (const check of checks) {
@@ -22,7 +24,19 @@ export function EvaluationList({
         }
         return values;
     }, [checks]);
-    const filtered = checks.filter((check) => status === "all" || check.data.status === status);
+    const phases = useMemo(() => {
+        const values = new Map<string, number>();
+        for (const check of checks) {
+            const value = assessmentContext(check.data)?.phase ?? "unspecified";
+            values.set(value, (values.get(value) ?? 0) + 1);
+        }
+        return values;
+    }, [checks]);
+    const filtered = checks.filter(
+        (check) =>
+            (status === "all" || check.data.status === status) &&
+            (phase === "all" || (assessmentContext(check.data)?.phase ?? "unspecified") === phase),
+    );
     return (
         <>
             <div className="evaluation-filters" role="group" aria-label="Evaluation status">
@@ -38,6 +52,25 @@ export function EvaluationList({
                     </button>
                 ))}
             </div>
+            {(phases.has("during_run") || phases.has("end_of_run") || phase !== "all") && (
+                <div className="evaluation-filters" role="group" aria-label="Assessment phase">
+                    {[
+                        ["all", "All phases"],
+                        ["during_run", "During run"],
+                        ["end_of_run", "End of run"],
+                        ["unspecified", "Phase not reported"],
+                    ].map(([value, label]) => (
+                        <button
+                            key={value}
+                            className="badge unrecorded"
+                            aria-pressed={phase === value}
+                            onClick={() => setPhase(value)}
+                        >
+                            {label} ({value === "all" ? checks.length : (phases.get(value) ?? 0)})
+                        </button>
+                    ))}
+                </div>
+            )}
             <p className="muted" role="status">
                 {filtered.length} of {checks.length} evaluations shown.
             </p>
@@ -46,6 +79,7 @@ export function EvaluationList({
                     key={check.id}
                     data={check.data}
                     runFinished={model.runs.get(check.data.run)?.status === "finished"}
+                    runReason={model.runs.get(check.data.run)?.reason ?? undefined}
                 />
             ))}
             {filtered.length === 0 && (

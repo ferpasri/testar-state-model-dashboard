@@ -1,5 +1,7 @@
 import { useMemo, useState } from "react";
 import { displayValue } from "./evidence/common";
+import { CaptureDescription, PropertyCaptureInformation } from "./CaptureInformation";
+import { propertyGroups } from "./evidence/property-evidence";
 import {
     coverageForObservation,
     evaluationCoverage,
@@ -17,7 +19,9 @@ function PropertyCoverage({
 }) {
     const [onlyMissing, setOnlyMissing] = useState(true);
     const [limit, setLimit] = useState(50);
-    const names = Object.keys(properties).filter((name) => !onlyMissing || !results.has(name));
+    const groups = propertyGroups(properties, results).filter(
+        (group) => !onlyMissing || group.results === 0,
+    );
     return (
         <div className="property-coverage">
             <label className="compact-toggle">
@@ -31,22 +35,32 @@ function PropertyCoverage({
                 />
                 Only properties without recorded evaluations
             </label>
-            <p className="muted">{names.length} captured properties shown.</p>
+            <p className="muted">
+                {groups.length} captured properties shown; declared aliases are grouped.
+            </p>
             <ul className="coverage-properties">
-                {names.slice(0, limit).map((name) => (
-                    <li key={name}>
-                        <code>{name}</code>
+                {groups.slice(0, limit).map((group) => (
+                    <li key={group.name}>
+                        <div>
+                            <code>{group.name}</code>
+                            {group.aliases.length > 0 && (
+                                <p className="muted">
+                                    Also recorded as: {group.aliases.join(", ").slice(0, 4000)}
+                                </p>
+                            )}
+                        </div>
                         <span
-                            className={"badge " + (results.has(name) ? "recorded" : "unrecorded")}
+                            className={"badge " + (group.results > 0 ? "recorded" : "unrecorded")}
                         >
-                            {results.has(name)
-                                ? results.get(name) + " results"
+                            {group.results > 0
+                                ? group.results + " results"
                                 : "No recorded evaluation"}
                         </span>
                     </li>
                 ))}
             </ul>
-            {names.length > limit && (
+            <PropertyCaptureInformation properties={properties} />
+            {groups.length > limit && (
                 <button className="quiet" onClick={() => setLimit((value) => value + 50)}>
                     Show more properties
                 </button>
@@ -112,8 +126,8 @@ export function EvaluationCoverage({
             <p className="muted">
                 {missingWidgets} of {observation.state.widgets.length} captured widgets have no
                 direct result. {missingStateProperties} of{" "}
-                {Object.keys(observation.state.properties).length} state properties have no property
-                result.
+                {propertyGroups(observation.state.properties).length} state properties have no
+                property result.
             </p>
             {observation.state.capture !== "complete" && (
                 <p className="notice">
@@ -121,6 +135,7 @@ export function EvaluationCoverage({
                     captured data.
                 </p>
             )}
+            <CaptureDescription properties={observation.state.properties} />
             <h3>Visits in this run</h3>
             <label className="search-label">
                 Run coverage
@@ -185,8 +200,8 @@ export function EvaluationCoverage({
                 </select>
             </label>
             <p className="muted">
-                {widgets.length} widgets match. Property names are matched exactly as recorded;
-                aliases are separate keys.
+                {widgets.length} widgets match. Property targets retain their recorded names; valid
+                same-record aliases share coverage.
             </p>
             {widgets.slice(0, widgetLimit).map((widget) => {
                 const result = coverage.widgets.get(widget.id);
@@ -224,8 +239,10 @@ export function EvaluationCoverage({
                 </button>
             )}
             <p className="muted">
-                The lists cover captured properties. Evaluations of absent or uncaptured properties
-                remain visible in Evaluations.
+                The lists group declared aliases and exclude the three shared capture-description
+                metadata fields. Nested objects count as one property; their fields are not
+                expanded. Evaluations of absent or uncaptured properties remain visible in
+                Evaluations.
             </p>
         </section>
     );

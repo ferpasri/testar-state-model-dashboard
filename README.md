@@ -1,6 +1,6 @@
 # testar-state-model-dashboard
 
-A web application for exploring test evidence from tools that follow [testar-state-model-specs](https://github.com/ferpasri/testar-state-model-specs).
+A web application for exploring test evidence from tools that follow [testar-evidence-specs](https://github.com/ferpasri/testar-evidence-specs).
 
 Select a local model folder to inspect its runs, ordered observations, action executions, screenshots, widgets, properties, and test-oracle results. Multiple sources can share one workspace while retaining their own identities and execution history.
 
@@ -18,6 +18,10 @@ npm run dev
 Open the local URL printed by Vite. Choose **Open model folder** and select a directory containing `manifest.json`, `evidence.jsonl`, and its referenced artifacts. You can also select a parent directory containing several models, then add further sources to the workspace.
 
 Select a run in the sidebar. Follow visits using the timeline or graph, and use the inspector tabs to examine captured properties, widgets, evaluations, and executions.
+
+In **Evaluations**, click a status to filter results. When assessment phases are reported, filter **During run** or **End of run** to inspect them separately. Pending results keep their reported status even after a run ends.
+
+**Coverage** groups explicitly declared names for the same captured property when their values agree. Grouped rows show their recorded aliases. Capture descriptions explain the producer's widget and property selection, limits, and truncation; known omissions are listed separately from captured properties.
 
 In **Evaluations**, click a status to filter results. **Coverage** lists captured visits, widgets, and properties with no recorded evaluation; a missing result does not prove an oracle never ran. Dashed graph links connect consecutive observations without a recorded completed action. Click one to inspect what is known, or hide them with **Show observation-order links**.
 

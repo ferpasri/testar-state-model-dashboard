@@ -44,8 +44,11 @@
 
 ## Capture and evaluation coverage
 
-- [ ] Distinguish top-level property containers from their nested fields, and show capture scope and omissions when comparing evidence across tools.
-- [ ] Make unresolved temporal conditions and any producer-supplied end-of-run assessments clearer, preserving their sequence scope and the distinction between no recorded evaluation and never evaluated.
+- [x] Group valid same-record aliases, count nested objects once, and show capture descriptions and known omissions separately from application-property coverage.
+- [x] Label and filter reported assessment phases and termination context, preserving sequence scope, recorded statuses, and independent reports.
+- [ ] Keep dashboard interpretation and default matching rules tool-independent. Remove the `bombadil.assessment_phase` and `bombadil.termination_reason` fallbacks; adapters supply shared `evidence.assessment` metadata. Show "Phase not reported" when that metadata is missing, and retain tool-specific properties for raw inspection and user-defined matching rules. Review built-in logic for other tool-specific interpretations.
+- [ ] Add a dedicated cross-source capture comparison that explains differing producer selections and limitations. Follow the [shared capture-comparison plan](https://github.com/ferpasri/testar-evidence-specs/blob/main/TODO.md#capture-comparison-in-derived-models).
+- [ ] Offer offline query oracles over widgets and properties selected through the derived model. Evaluate original captured observations, explain insufficient evidence, and keep new results and coverage separate from the original execution results. Follow the [shared offline-oracle plan](https://github.com/ferpasri/testar-evidence-specs/blob/main/TODO.md#offline-query-oracles-over-captured-evidence).
 
 ## Distribution and maintenance
 

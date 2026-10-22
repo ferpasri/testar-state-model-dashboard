@@ -52,7 +52,7 @@ for (let page = 1; page <= 20; page++) {
     const data = JSON.parse(
         new TextDecoder().decode(
             await download(
-                "https://api.github.com/repos/ferpasri/testar-state-model-specs/releases?per_page=100&page=" +
+                "https://api.github.com/repos/ferpasri/testar-evidence-specs/releases?per_page=100&page=" +
                     page,
                 4 * 1024 ** 2,
             ),

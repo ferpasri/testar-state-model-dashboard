@@ -1,3 +1,4 @@
+import { assessmentContext } from "./evidence/assessment";
 import { formatJson } from "./evidence/common";
 import type { Check } from "./evidence/schema";
 
@@ -19,7 +20,16 @@ export function Properties({ values }: { values: Record<string, unknown> }) {
     );
 }
 
-export function Evaluation({ data, runFinished }: { data: Check; runFinished: boolean }) {
+export function Evaluation({
+    data,
+    runFinished,
+    runReason,
+}: {
+    data: Check;
+    runFinished: boolean;
+    runReason?: string;
+}) {
+    const assessment = assessmentContext(data);
     const descriptions: Record<Check["status"], string> = {
         passed: "The test oracle reported that the condition was satisfied.",
         failed: "The test oracle reported that the condition was not satisfied.",
@@ -38,6 +48,28 @@ export function Evaluation({ data, runFinished }: { data: Check; runFinished: bo
                 {descriptions[data.status]}
                 {data.status === "pending" && runFinished ? " The run has ended." : ""}
             </p>
+            {assessment && (
+                <div className="assessment-context">
+                    <span className="badge recorded">
+                        {assessment.phase === "end_of_run"
+                            ? "End-of-run assessment"
+                            : "During-run assessment"}
+                    </span>
+                    {assessment.semantics && (
+                        <p className="muted">
+                            {assessment.semantics === "open_ended"
+                                ? "This condition can depend on future observations."
+                                : "This condition concerns the reported observation interval."}
+                        </p>
+                    )}
+                    {assessment.phase === "end_of_run" &&
+                        (assessment.terminationReason ?? runReason) && (
+                            <p className="muted">
+                                Run ending: {assessment.terminationReason ?? runReason}
+                            </p>
+                        )}
+                </div>
+            )}
             <p className="muted">Target: {data.target.kind.replaceAll("_", " ")}</p>
             <Properties
                 values={{
