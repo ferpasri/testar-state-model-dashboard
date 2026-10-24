@@ -6,14 +6,14 @@ import { sharedCases } from "../support";
 const cases = sharedCases();
 const initial = cases.find((directory) => path.basename(directory) === "initial-observation")!;
 const targeted = cases.find(
-    (directory) => path.basename(directory) === "targeted-property-checks",
+    (directory) => path.basename(directory) === "targeted-property-oracles",
 )!;
 
 test("imports a trace and inspects its executed actions and evaluations", async ({ page }) => {
     const errors: string[] = [];
     page.on("pageerror", (error) => errors.push(error.message));
     await page.goto("/");
-    await page.getByLabel("Model directory").setInputFiles(targeted);
+    await page.getByLabel("Evidence directory").setInputFiles(targeted);
     await expect(page.getByRole("heading", { name: "Observation 1", exact: true })).toBeVisible();
     await expect(
         page.getByRole("region", { name: "Execution graph" }).locator("canvas").first(),
@@ -25,7 +25,7 @@ test("imports a trace and inspects its executed actions and evaluations", async 
     await page.getByRole("button", { name: "Evaluations", exact: true }).click();
     await expect(page.locator(".evaluation .badge.failed")).toHaveText("failed");
     await page.getByRole("button", { name: "Executions", exact: true }).click();
-    await expect(page.locator(".evaluation .badge.observed")).toBeVisible();
+    await expect(page.locator(".evaluation .badge.completed")).toBeVisible();
     expect(errors).toEqual([]);
 });
 
@@ -38,8 +38,8 @@ test("loads screenshots locally and renders imported strings safely", async ({ p
         .split("\n")
         .map((line) => JSON.parse(line));
     const malicious = '<img src="https://example.invalid/evidence" onerror="window.injected=true">';
-    entries[2].event.data.state.widgets[0].properties["ui.text"] = malicious;
-    entries[2].event.data.state.properties["ui.title"] = { toString: null, valueOf: null };
+    entries[3].event.data.recorded_state.widgets[0].properties["ui.text"] = malicious;
+    entries[3].event.data.recorded_state.properties["ui.title"] = { toString: null, valueOf: null };
     writeFileSync(evidencePath, entries.map((entry) => JSON.stringify(entry)).join("\n") + "\n");
     await page.goto("/");
     await page.waitForLoadState("networkidle");
@@ -53,7 +53,7 @@ test("loads screenshots locally and renders imported strings safely", async ({ p
             });
         }
     });
-    await page.getByLabel("Model directory").setInputFiles(directory);
+    await page.getByLabel("Evidence directory").setInputFiles(directory);
     const image = page.getByRole("img", { name: "Screenshot for observation 1" });
     await expect(image).toBeVisible();
     await expect
@@ -75,22 +75,24 @@ test("loads screenshots locally and renders imported strings safely", async ({ p
 
 test("retains multiple sources and deduplicates identical reimports", async ({ page }) => {
     await page.goto("/");
-    await page.getByLabel("Model directory").setInputFiles(initial);
+    await page.getByLabel("Evidence directory").setInputFiles(initial);
     await expect(page.getByRole("heading", { name: "Observation 1", exact: true })).toBeVisible();
-    await page.getByLabel("Model directory").setInputFiles(targeted);
+    await page.getByLabel("Evidence directory").setInputFiles(targeted);
     await expect(page.getByText("2 sources", { exact: true })).toBeVisible();
-    await page.getByLabel("Model directory").setInputFiles(initial);
+    await page.getByLabel("Evidence directory").setInputFiles(initial);
     await expect(page.getByText("2 sources", { exact: true })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Observation 1", exact: true })).toBeVisible();
 });
 
 test("shows validation diagnostics and preserves the existing workspace", async ({ page }) => {
     await page.goto("/");
-    await page.getByLabel("Model directory").setInputFiles(initial);
+    await page.getByLabel("Evidence directory").setInputFiles(initial);
     await expect(page.getByRole("heading", { name: "Observation 1", exact: true })).toBeVisible();
-    const invalid = cases.find((directory) => path.basename(directory) === "invalid-check-widget")!;
-    await page.getByLabel("Model directory").setInputFiles(invalid);
-    await expect(page.getByRole("alert")).toContainText("evidence.jsonl:3");
+    const invalid = cases.find(
+        (directory) => path.basename(directory) === "invalid-oracle-widget",
+    )!;
+    await page.getByLabel("Evidence directory").setInputFiles(invalid);
+    await expect(page.getByRole("alert")).toContainText("evidence.jsonl:4");
     await expect(page.getByRole("alert")).toContainText("target.widget");
     await expect(page.getByText("1 source", { exact: true })).toBeVisible();
     await expect(page.getByRole("heading", { name: "Observation 1", exact: true })).toBeVisible();
@@ -99,7 +101,7 @@ test("shows validation diagnostics and preserves the existing workspace", async 
 test("supports a narrow screen without horizontal page overflow", async ({ page }) => {
     await page.setViewportSize({ width: 390, height: 844 });
     await page.goto("/");
-    await page.getByLabel("Model directory").setInputFiles(initial);
+    await page.getByLabel("Evidence directory").setInputFiles(initial);
     await expect(page.getByRole("heading", { name: "Observation 1", exact: true })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
         true,
@@ -114,22 +116,24 @@ test("cancels a running import without adding partial evidence", async ({ page }
         .trimEnd()
         .split("\n")
         .map((line) => JSON.parse(line));
-    const entries = original.slice(0, 2);
+    const entries = original.slice(0, 3);
     for (let index = 1; index <= 20_000; index++) {
-        const entry = structuredClone(original[2]);
+        const entry = structuredClone(original[3]);
         entry.id = "event:" + index;
         entry.event.data.id = "observation:" + index;
-        entry.event.data.sequence = index;
-        entry.event.data.state.id = "snapshot:" + index;
+        entry.event.data.observation_index = index;
+        entry.event.data.recorded_state.id = "snapshot:" + index;
         entry.event.data.artifacts = [];
         entries.push(entry);
     }
     writeFileSync(log, entries.map((entry) => JSON.stringify(entry)).join("\n") + "\n");
     await page.goto("/");
-    await page.getByLabel("Model directory").setInputFiles(directory);
+    await page.getByLabel("Evidence directory").setInputFiles(directory);
     await page.getByRole("button", { name: "Cancel import", exact: true }).click();
     await expect(page.getByRole("status")).toHaveCount(0);
-    await expect(page.getByRole("button", { name: "Open your first model folder" })).toBeVisible();
+    await expect(
+        page.getByRole("button", { name: "Open your first evidence folder" }),
+    ).toBeVisible();
     await expect(page.locator(".source")).toHaveCount(0);
 });
 
@@ -137,10 +141,10 @@ test("clicking a graph transition opens its exact execution and endpoint observa
     page,
 }) => {
     const broader = cases.find(
-        (directory) => path.basename(directory) === "broader-check-targets",
+        (directory) => path.basename(directory) === "broader-oracle-targets",
     )!;
     await page.goto("/");
-    await page.getByLabel("Model directory").setInputFiles(broader);
+    await page.getByLabel("Evidence directory").setInputFiles(broader);
     await expect(page.getByRole("heading", { name: "Observation 1", exact: true })).toBeVisible();
     const graph = page.getByRole("region", { name: "Execution graph" });
     await expect(graph.locator("canvas").first()).toBeVisible();
@@ -152,7 +156,7 @@ test("clicking a graph transition opens its exact execution and endpoint observa
     await expect(
         page.getByRole("heading", { name: "Action execution", exact: true }),
     ).toBeVisible();
-    await expect(page.locator(".details .badge.observed")).toHaveText("observed");
+    await expect(page.locator(".details .badge.completed")).toHaveText("completed");
     await expect(page.locator(".details")).toContainText(
         "example:broader-check-targets:execution:1",
     );
@@ -170,10 +174,10 @@ test("clicking a graph transition opens its exact execution and endpoint observa
 
 test("explains a recorded pending evaluation after its run has ended", async ({ page }) => {
     const broader = cases.find(
-        (directory) => path.basename(directory) === "broader-check-targets",
+        (directory) => path.basename(directory) === "broader-oracle-targets",
     )!;
     await page.goto("/");
-    await page.getByLabel("Model directory").setInputFiles(broader);
+    await page.getByLabel("Evidence directory").setInputFiles(broader);
     await expect(page.getByRole("heading", { name: "Observation 1", exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Evaluations", exact: true }).click();
     const result = page.locator(".evaluation").filter({ has: page.locator(".badge.pending") });

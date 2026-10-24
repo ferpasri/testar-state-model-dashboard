@@ -13,59 +13,78 @@ function sample(directory: string) {
         .trimEnd()
         .split("\n")
         .map((line) => JSON.parse(line))
-        .filter((entry) => entry.event.kind !== "run_finished");
-    const first = entries.find((entry) => entry.event.kind === "observed").event.data;
+        .filter((entry) => entry.event.event_type !== "test_run_finished");
+    const first = entries.find((entry) => entry.event.event_type === "observation_recorded").event
+        .data;
     first.artifacts = [];
-    first.state.properties = { "ui.title": "Example", "example.unchecked": true };
-    const widget = first.state.widgets[0];
+    first.recorded_state.properties = { "ui.title": "Example", "example.unchecked": true };
+    const widget = first.recorded_state.widgets[0];
     widget.properties = { "ui.name": "Primary widget", "ui.enabled": true };
-    first.state.widgets.push({
+    first.recorded_state.widgets.push({
         id: "other-widget",
         parent: null,
         properties: { "ui.text": "Other widget", "example.other": true },
     });
     const second = structuredClone(first);
     second.id = "example:second";
-    second.sequence = first.sequence + 1;
-    second.state.id = "example:second-snapshot";
+    second.observation_index = first.observation_index + 1;
+    second.recorded_state.id = "example:second-snapshot";
     entries.push({
-        schema_version: 2,
+        schema_version: 3,
         id: "example:second-event",
-        event: { kind: "observed", data: second },
+        event: { event_type: "observation_recorded", data: second },
     });
     const targets = [
         {
-            kind: "widget_property",
+            target_type: "widget_property",
             observation: first.id,
             widget: widget.id,
             property: "ui.enabled",
         },
-        { kind: "observation", observation: first.id },
-        { kind: "run" },
-        { kind: "sequence", from_observation: first.id, to_observation: second.id },
-        { kind: "state_property", observation: first.id, property: "ui.title" },
+        { target_type: "observation", observation: first.id },
+        { target_type: "test_run" },
+        {
+            target_type: "observation_range",
+            first_observation: first.id,
+            last_observation: second.id,
+        },
+        { target_type: "state_property", observation: first.id, property: "ui.title" },
     ];
     ["passed", "failed", "pending", "unknown", "error"].forEach((status, index) => {
         entries.push({
-            schema_version: 2,
+            schema_version: 3,
             id: "example:check:" + index,
             event: {
-                kind: "checked",
+                event_type: "oracle_result_recorded",
                 data: {
-                    run: first.run,
+                    test_run: entries[0].event.data.id,
+                    ...(targets[index].target_type === "test_run"
+                        ? {}
+                        : { test_sequence: first.test_sequence }),
                     name: "Condition " + status,
-                    rule: { id: "example:rule:" + index },
-                    target: targets[index],
-                    status,
-                    details: {},
+                    oracle: { id: "example:rule:" + index },
+                    oracle_target: targets[index],
+                    oracle_status: status,
+                    oracle_details: {},
                 },
             },
         });
     });
     entries.push({
-        schema_version: 2,
+        schema_version: 3,
         id: "example:finished",
-        event: { kind: "run_finished", data: { run: first.run, reason: "done" } },
+        event: {
+            event_type: "test_sequence_finished",
+            data: { test_sequence: first.test_sequence, reason: "done" },
+        },
+    });
+    entries.push({
+        schema_version: 3,
+        id: "run-finished",
+        event: {
+            event_type: "test_run_finished",
+            data: { test_run: entries[0].event.data.id, reason: "done" },
+        },
     });
     writeFileSync(
         path.join(directory, "manifest.json"),
@@ -80,7 +99,7 @@ function sample(directory: string) {
 
 test("filters evaluation outcomes without changing reported coverage", async ({ page }, info) => {
     await page.goto("/");
-    await page.getByLabel("Model directory").setInputFiles(sample(info.outputPath("model")));
+    await page.getByLabel("Evidence directory").setInputFiles(sample(info.outputPath("evidence")));
     await expect(page.getByRole("heading", { name: "Observation 1", exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Evaluations", exact: true }).click();
     const filters = page.getByRole("group", { name: "Evaluation status" });
@@ -97,7 +116,7 @@ test("lists captured items without direct results and navigates to uncovered vis
     page,
 }, info) => {
     await page.goto("/");
-    await page.getByLabel("Model directory").setInputFiles(sample(info.outputPath("model")));
+    await page.getByLabel("Evidence directory").setInputFiles(sample(info.outputPath("evidence")));
     await page.getByRole("button", { name: "Coverage", exact: true }).click();
     const coverage = page.getByRole("region", { name: "Recorded evaluation coverage" });
     await expect(coverage).toContainText("1 of 2 captured widgets have no direct result");
@@ -121,7 +140,7 @@ test("inspects and hides unknown observation-order links without inventing execu
     page,
 }, info) => {
     await page.goto("/");
-    await page.getByLabel("Model directory").setInputFiles(sample(info.outputPath("model")));
+    await page.getByLabel("Evidence directory").setInputFiles(sample(info.outputPath("evidence")));
     const graph = page.getByRole("region", { name: "Execution graph" });
     await expect(graph.locator(".graph-note")).toContainText("Observation order only (1)");
     await expect(graph.locator("canvas").first()).toBeVisible();

@@ -3,7 +3,7 @@ import path from "node:path";
 import { expect, test, vi } from "vitest";
 import { canonical, displayValue, formatJson, parseJson } from "../src/evidence/common";
 import { importDirectory } from "../src/evidence/import";
-import { Replay } from "../src/evidence/model";
+import { Replay } from "../src/evidence/reconstructed-evidence";
 import { manifestSchema } from "../src/evidence/schema";
 import { sharedCases, fixtureFiles } from "./support";
 
@@ -21,95 +21,112 @@ test("preserves large integer properties through parsing, replay, clone, and dis
     const properties = parseJson(text);
     expect(canonical(properties)).toBe(text);
     expect(formatJson(structuredClone(properties))).toContain("18446744073709551615");
-    const observed = structuredClone(initial[2]);
-    observed.event.data.state.properties = properties;
+    const observation_recorded = structuredClone(initial[3]);
+    observation_recorded.event.data.recorded_state.properties = properties;
     const replay = new Replay(manifest);
     replay.apply(initial[0]);
     replay.apply(initial[1]);
-    replay.apply(observed);
-    expect(replay.model.observations.values().next().value!.state.properties.large).toBe(
-        18446744073709551615n,
-    );
+    replay.apply(initial[2]);
+    replay.apply(observation_recorded);
+    expect(
+        replay.evidence.observations.values().next().value!.recorded_state.properties.large,
+    ).toBe(18446744073709551615n);
 });
 
 test("retains incomplete execution status and accepts a late evaluation", () => {
     const replay = new Replay(manifest);
     initial.forEach((event) => replay.apply(event));
-    const observation = initial[2].event.data;
+    const observation = initial[3].event.data;
     const execution = {
         id: "execution",
-        run: observation.run,
-        source: observation.id,
-        action: "example:activate",
-        target: "login",
+        test_sequence: observation.test_sequence,
+        source_observation: observation.id,
+        action_description: "example:activate",
+        target_widget: "login",
         parameters: {},
     };
     const emit = (id: string, kind: string, data: unknown) =>
-        replay.apply({ schema_version: 2, id, event: { kind, data } });
+        replay.apply({ schema_version: 3, id, event: { event_type: kind, data } });
     emit("selected", "action_selected", execution);
-    emit("submitted", "action_submitted", { execution: "execution", accepted: true });
-    emit("finished", "run_finished", { run: observation.run, reason: "interrupted" });
-    expect(replay.model.executions.get("execution")).toMatchObject({
+    emit("submitted", "action_execution_reported", {
+        action_execution: "execution",
+        outcome: "returned",
+        error: null,
+    });
+    emit("finished", "test_sequence_finished", {
+        test_sequence: observation.test_sequence,
+        reason: "interrupted",
+    });
+    expect(replay.evidence.executions.get("execution")).toMatchObject({
         status: "incomplete",
-        result: null,
+        resultingObservation: null,
     });
-    emit("late-check", "checked", {
-        run: observation.run,
+    emit("late-check", "oracle_result_recorded", {
+        test_run: initial[0].event.data.id,
         name: "Review",
-        rule: { id: "review" },
-        target: { kind: "run" },
-        status: "unknown",
+        oracle: { id: "review" },
+        oracle_target: { target_type: "test_run" },
+        oracle_status: "unknown",
+        oracle_details: {},
     });
-    expect(replay.model.checks).toHaveLength(1);
+    expect(replay.evidence.oracleResults).toHaveLength(1);
     expect(() =>
-        emit("second-finish", "run_finished", { run: observation.run, reason: "done" }),
-    ).toThrow("running run");
+        emit("second-finish", "test_sequence_finished", {
+            test_sequence: observation.test_sequence,
+            reason: "done",
+        }),
+    ).toThrow("finished");
 });
 
 test("rejects a backward result while preserving a submitted execution", () => {
     const replay = new Replay(manifest);
     initial.forEach((event) => replay.apply(event));
-    const observation = initial[2].event.data;
+    const observation = initial[3].event.data;
     replay.apply({
-        schema_version: 2,
+        schema_version: 3,
         id: "selection",
         event: {
-            kind: "action_selected",
+            event_type: "action_selected",
             data: {
                 id: "execution",
-                run: observation.run,
-                source: observation.id,
-                action: "example:activate",
-                target: "login",
+                test_sequence: observation.test_sequence,
+                source_observation: observation.id,
+                action_description: "example:activate",
+                target_widget: "login",
                 parameters: {},
             },
         },
     });
     replay.apply({
-        schema_version: 2,
-        id: "submission",
-        event: { kind: "action_submitted", data: { execution: "execution", accepted: true } },
+        schema_version: 3,
+        id: "execution-result",
+        event: {
+            event_type: "action_execution_reported",
+            data: { action_execution: "execution", outcome: "returned", error: null },
+        },
     });
     expect(() =>
         replay.apply({
-            schema_version: 2,
+            schema_version: 3,
             id: "result",
             event: {
-                kind: "action_result",
-                data: { execution: "execution", observation: observation.id },
+                event_type: "transition_recorded",
+                data: { action_execution: "execution", resulting_observation: observation.id },
             },
         }),
-    ).toThrow("later observation");
-    expect(replay.model.executions.get("execution")?.status).toBe("submitted");
-    expect(replay.model.eventCount).toBe(5);
+    ).toThrow("later in the same sequence");
+    expect(replay.evidence.executions.get("execution")?.status).toBe(
+        "awaiting_resulting_observation",
+    );
+    expect(replay.evidence.eventCount).toBe(6);
 });
 
 test("verifies repeated screenshot references using one file read", async () => {
     const events = structuredClone(initial);
-    const second = structuredClone(events[2]);
+    const second = structuredClone(events[3]);
     second.id = "second-event";
     second.event.data.id = "second-observation";
-    second.event.data.sequence = 2;
+    second.event.data.observation_index = 2;
     events.push(second);
     const files = fixtureFiles(directory).map((item) =>
         item.path === "evidence.jsonl"
@@ -125,8 +142,8 @@ test("verifies repeated screenshot references using one file read", async () => 
     const image = files.find((item) => item.path.endsWith(".png"))!;
     const reads = vi.spyOn(image.file, "arrayBuffer");
     const sources = await importDirectory(files);
-    expect(sources[0].model.observations.size).toBe(2);
-    expect(sources[0].model.snapshots.size).toBe(1);
+    expect(sources[0].evidence.observations.size).toBe(2);
+    expect(sources[0].evidence.recordedStates.size).toBe(1);
     expect(reads).toHaveBeenCalledTimes(1);
 });
 

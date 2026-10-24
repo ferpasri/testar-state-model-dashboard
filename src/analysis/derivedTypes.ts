@@ -1,4 +1,4 @@
-import type { RecordedExecution } from "../evidence/model";
+import type { RecordedExecution } from "../evidence/reconstructed-evidence";
 import type { EvidenceReference } from "./types";
 
 export interface ExecutionReference {

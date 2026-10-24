@@ -1,18 +1,24 @@
 # Remaining work
 
+## Evidence format alignment
+
+- [x] Read schema-3 traces and pass the v0.3.0 shared conformance cases.
+- [x] Inspect test runs and test sequences without connecting separate sequence histories.
+- [x] Preserve oracle severity, observed values, and detailed oracle targets.
+
 ## First milestone: local evidence inspection
 
 - [x] Initialize the TypeScript, React, and Vite application, with unit and browser test tooling.
 - [x] Prepare shared conformance data from published specs releases and test accepted and rejected cases.
-- [x] Implement local model-directory selection and validation with useful file/line diagnostics.
-- [x] Preserve source identities when loading multiple models into one workspace.
+- [x] Implement local evidence-directory selection and validation with useful file/line diagnostics.
+- [x] Preserve source identities when loading multiple traces into one workspace.
 - [x] Parse and index evidence in a Web Worker, with progress reporting and cancellation.
 - [x] Display runs, ordered observations, action executions, and their concrete links.
-- [x] Add screenshot, widget, property, and check-result inspection panels.
+- [x] Add screenshot, widget, property, and oracle-result inspection panels.
 - [x] Filter evaluation results by their reported status.
 - [x] Inspect captured items and visits without direct evaluation results.
 - [x] Display optional observation-order links with explicit unknown-action explanations.
-- [x] Display capture limits, pending evaluations, rejected submissions, and incomplete executions clearly.
+- [x] Display capture limits, pending evaluations, failed action executions, and incomplete executions clearly.
 - [x] Verify safe rendering, file-processing limits, and local-only evidence handling with tests.
 - [x] Exercise the dashboard with real recorded evidence and measure responsiveness.
 
@@ -46,7 +52,7 @@
 
 - [x] Group valid same-record aliases, count nested objects once, and show capture descriptions and known omissions separately from application-property coverage.
 - [x] Label and filter reported assessment phases and termination context, preserving sequence scope, recorded statuses, and independent reports.
-- [ ] Keep dashboard interpretation and default matching rules tool-independent. Remove the `bombadil.assessment_phase` and `bombadil.termination_reason` fallbacks; adapters supply shared `evidence.assessment` metadata. Show "Phase not reported" when that metadata is missing, and retain tool-specific properties for raw inspection and user-defined matching rules. Review built-in logic for other tool-specific interpretations.
+- [x] Keep dashboard interpretation and default matching rules tool-independent. Interpret shared `evidence.assessment` metadata for reporting phases. Show "Phase not reported" when that metadata is missing, and retain tool-specific properties for raw inspection and user-defined matching rules. Built-in interpretation uses shared evidence fields.
 - [ ] Add a dedicated cross-source capture comparison that explains differing producer selections and limitations. Follow the [shared capture-comparison plan](https://github.com/ferpasri/testar-evidence-specs/blob/main/TODO.md#capture-comparison-in-derived-models).
 - [ ] Offer offline query oracles over widgets and properties selected through the derived model. Evaluate original captured observations, explain insufficient evidence, and keep new results and coverage separate from the original execution results. Follow the [shared offline-oracle plan](https://github.com/ferpasri/testar-evidence-specs/blob/main/TODO.md#offline-query-oracles-over-captured-evidence).
 

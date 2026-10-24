@@ -1,3 +1,4 @@
+import { compareIndex } from "./evidence/reconstructed-evidence";
 import { useMemo, useState } from "react";
 import { displayValue } from "./evidence/common";
 import { CaptureDescription, PropertyCaptureInformation } from "./CaptureInformation";
@@ -78,15 +79,15 @@ export function EvaluationCoverage({
     observation: Observation;
     onSelectObservation: (id: string) => void;
 }) {
-    const index = useMemo(() => evaluationCoverage(source.model), [source.model]);
+    const index = useMemo(() => evaluationCoverage(source.evidence), [source.evidence]);
     const coverage = coverageForObservation(index, observation);
     const [runFilter, setRunFilter] = useState("no-direct");
     const [widgetFilter, setWidgetFilter] = useState("missing-properties");
     const [visitLimit, setVisitLimit] = useState(50);
     const [widgetLimit, setWidgetLimit] = useState(50);
-    const visits = Array.from(source.model.observations.values())
-        .filter((item) => item.run === observation.run)
-        .sort((left, right) => left.sequence - right.sequence);
+    const visits = Array.from(source.evidence.observations.values())
+        .filter((item) => item.test_sequence === observation.test_sequence)
+        .sort((left, right) => compareIndex(left.observation_index, right.observation_index));
     const filteredVisits = visits.filter((item) => {
         const visit = coverageForObservation(index, item);
         return (
@@ -94,7 +95,7 @@ export function EvaluationCoverage({
             (runFilter === "no-direct" ? visit.directResults === 0 : visit.detailedResults === 0)
         );
     });
-    const widgets = observation.state.widgets.filter((widget) => {
+    const widgets = observation.recorded_state.widgets.filter((widget) => {
         const result = coverage.widgets.get(widget.id);
         return (
             widgetFilter === "all" ||
@@ -104,11 +105,11 @@ export function EvaluationCoverage({
                       .length > 0)
         );
     });
-    const missingWidgets = observation.state.widgets.filter(
+    const missingWidgets = observation.recorded_state.widgets.filter(
         (widget) => !coverage.widgets.has(widget.id),
     ).length;
     const missingStateProperties = propertiesWithoutResults(
-        observation.state.properties,
+        observation.recorded_state.properties,
         coverage.stateProperties,
     ).length;
     return (
@@ -118,24 +119,24 @@ export function EvaluationCoverage({
                 An oracle may have run without reporting it. Counts include every reported status,
                 including pending and error.
             </p>
-            <h3>Observation {observation.sequence}</h3>
+            <h3>Observation {observation.observation_index}</h3>
             <p className="muted">
                 {coverage.observationResults} observation-level results; {coverage.detailedResults}{" "}
                 widget/property results. Broad results do not evaluate every property.
             </p>
             <p className="muted">
-                {missingWidgets} of {observation.state.widgets.length} captured widgets have no
-                direct result. {missingStateProperties} of{" "}
-                {propertyGroups(observation.state.properties).length} state properties have no
-                property result.
+                {missingWidgets} of {observation.recorded_state.widgets.length} captured widgets
+                have no direct result. {missingStateProperties} of{" "}
+                {propertyGroups(observation.recorded_state.properties).length} state properties have
+                no property result.
             </p>
-            {observation.state.capture !== "complete" && (
+            {observation.recorded_state.capture !== "complete" && (
                 <p className="notice">
-                    Capture is {observation.state.capture}. Coverage describes the available
-                    captured data.
+                    Capture is {observation.recorded_state.capture}. Coverage describes the
+                    available captured data.
                 </p>
             )}
-            <CaptureDescription properties={observation.state.properties} />
+            <CaptureDescription properties={observation.recorded_state.properties} />
             <h3>Visits in this run</h3>
             <label className="search-label">
                 Run coverage
@@ -164,7 +165,7 @@ export function EvaluationCoverage({
                             className="quiet"
                             onClick={() => onSelectObservation(item.id)}
                         >
-                            Observation {item.sequence}: {result.observationResults}{" "}
+                            Observation {item.observation_index}: {result.observationResults}{" "}
                             observation-level, {result.detailedResults} widget/property results
                         </button>
                     );
@@ -178,7 +179,7 @@ export function EvaluationCoverage({
             <h3>Captured state properties</h3>
             <PropertyCoverage
                 key={source.id + observation.id + ":state"}
-                properties={observation.state.properties}
+                properties={observation.recorded_state.properties}
                 results={coverage.stateProperties}
             />
             <h3>Captured widgets</h3>

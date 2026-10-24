@@ -10,10 +10,14 @@ function metadataModel(directory: string): string {
         .trimEnd()
         .split("\n")
         .map((line) => JSON.parse(line))
-        .filter((entry) => !["checked", "run_finished"].includes(entry.event.kind));
-    const observation = entries.find((entry) => entry.event.kind === "observed").event.data;
+        .filter(
+            (entry) =>
+                !["oracle_result_recorded", "test_run_finished"].includes(entry.event.event_type),
+        );
+    const observation = entries.find((entry) => entry.event.event_type === "observation_recorded")
+        .event.data;
     observation.artifacts = [];
-    observation.state.properties = {
+    observation.recorded_state.properties = {
         "ui.title": "Captured form",
         "evidence.capture": {
             area: "Top document",
@@ -23,7 +27,7 @@ function metadataModel(directory: string): string {
             truncated: true,
         },
     };
-    observation.state.widgets = [
+    observation.recorded_state.widgets = [
         {
             id: "widget",
             parent: null,
@@ -42,7 +46,7 @@ function metadataModel(directory: string): string {
             },
         },
     ];
-    observation.candidates = [];
+    observation.available_actions = [];
     function check(
         id: string,
         details: Record<string, unknown>,
@@ -50,28 +54,29 @@ function metadataModel(directory: string): string {
         property = false,
     ) {
         entries.push({
-            schema_version: 2,
+            schema_version: 3,
             id,
             event: {
-                kind: "checked",
+                event_type: "oracle_result_recorded",
                 data: {
-                    run: observation.run,
+                    test_run: entries[0].event.data.id,
+                    test_sequence: observation.test_sequence,
                     name: id,
-                    rule: { id: "rule:" + id },
-                    status,
-                    target: property
+                    oracle: { id: "rule:" + id },
+                    oracle_status: status,
+                    oracle_target: property
                         ? {
-                              kind: "widget_property",
+                              target_type: "widget_property",
                               observation: observation.id,
                               widget: "widget",
                               property: "source.text",
                           }
                         : {
-                              kind: "sequence",
-                              from_observation: observation.id,
-                              to_observation: observation.id,
+                              target_type: "observation_range",
+                              first_observation: observation.id,
+                              last_observation: observation.id,
                           },
-                    details,
+                    oracle_details: details,
                 },
             },
         });
@@ -81,11 +86,19 @@ function metadataModel(directory: string): string {
     });
     check("text report", {}, "passed", true);
     entries.push({
-        schema_version: 2,
+        schema_version: 3,
+        id: "sequence-finish",
+        event: {
+            event_type: "test_sequence_finished",
+            data: { test_sequence: observation.test_sequence, reason: "deadline" },
+        },
+    });
+    entries.push({
+        schema_version: 3,
         id: "finish",
         event: {
-            kind: "run_finished",
-            data: { run: observation.run, reason: "deadline" },
+            event_type: "test_run_finished",
+            data: { test_run: entries[0].event.data.id, reason: "deadline" },
         },
     });
     check("shared final report", {
@@ -96,8 +109,8 @@ function metadataModel(directory: string): string {
         },
     });
     check("native final report", {
-        "bombadil.assessment_phase": "end_of_run",
-        "bombadil.termination_reason": "deadline",
+        "producer.assessment_phase": "end_of_run",
+        "producer.termination_reason": "deadline",
     });
     writeFileSync(
         path.join(directory, "manifest.json"),
@@ -114,7 +127,9 @@ test("shows capture selection and groups alias coverage while listing known omis
     page,
 }, info) => {
     await page.goto("/");
-    await page.getByLabel("Model directory").setInputFiles(metadataModel(info.outputPath("model")));
+    await page
+        .getByLabel("Evidence directory")
+        .setInputFiles(metadataModel(info.outputPath("evidence")));
     await expect(page.getByRole("heading", { name: "Observation 1", exact: true })).toBeVisible();
     const capture = page.getByRole("region", { name: "Capture description" });
     await expect(capture).toContainText("Selected concrete properties");
@@ -150,16 +165,18 @@ test("filters final assessments and keeps their pending status and original sequ
     page,
 }, info) => {
     await page.goto("/");
-    await page.getByLabel("Model directory").setInputFiles(metadataModel(info.outputPath("model")));
+    await page
+        .getByLabel("Evidence directory")
+        .setInputFiles(metadataModel(info.outputPath("evidence")));
     await page.getByRole("button", { name: "Evaluations", exact: true }).click();
     await expect(page.locator(".evaluation")).toHaveCount(4);
     const phase = page.getByRole("group", { name: "Assessment phase" });
-    await phase.getByRole("button", { name: "End of run (2)", exact: true }).click();
-    await expect(page.locator(".evaluation")).toHaveCount(2);
-    await expect(page.locator(".evaluation .badge.pending")).toHaveCount(2);
-    await expect(page.locator(".evaluation").first()).toContainText("End-of-run assessment");
+    await phase.getByRole("button", { name: "End of run (1)", exact: true }).click();
+    await expect(page.locator(".evaluation")).toHaveCount(1);
+    await expect(page.locator(".evaluation .badge.pending")).toHaveCount(1);
+    await expect(page.locator(".evaluation").first()).toContainText("end of run");
     await expect(page.locator(".evaluation").first()).toContainText("Run ending: deadline");
-    await expect(page.locator(".evaluation").first()).toContainText("Target: sequence");
+    await expect(page.locator(".evaluation").first()).toContainText("Target: observation range");
     await expect(page.locator(".evaluation").first()).toContainText("future observations");
     await page
         .getByRole("group", { name: "Evaluation status" })

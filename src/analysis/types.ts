@@ -11,7 +11,7 @@ export const MATCHING_LIMITS = {
     normalizedValueBytes: 1024 * 1024,
 };
 
-export type AnalysisSource = Pick<ImportedSource, "id" | "label" | "fingerprint" | "model">;
+export type AnalysisSource = Pick<ImportedSource, "id" | "label" | "fingerprint" | "evidence">;
 
 export type Transform =
     | { op: "trim" | "collapse_whitespace" | "lowercase" }
@@ -67,8 +67,8 @@ export interface FieldExplanation {
 
 export interface MatchingMember {
     reference: EvidenceReference;
-    sequence: number;
-    capture: Observation["state"]["capture"];
+    sequence: number | bigint;
+    capture: Observation["recorded_state"]["capture"];
     stateFields: FieldExplanation[];
     includedWidgets: number;
     excludedWidgets: number;
@@ -107,7 +107,7 @@ export interface MatchingPreview {
     };
     index: IndexCounts;
     groups: MatchingGroup[];
-    unmatched: Array<{ reference: EvidenceReference; sequence: number; reason: string }>;
+    unmatched: Array<{ reference: EvidenceReference; sequence: number | bigint; reason: string }>;
     counts: { observations: number; groups: number; sharedGroups: number; unmatched: number };
 }
 

@@ -5,7 +5,7 @@ export function evidenceLabel(
     reference: Pick<EvidenceReference, "source" | "run">,
 ) {
     const source = sources.find((item) => item.id === reference.source);
-    const run = source?.model.runs.get(reference.run);
+    const run = source?.evidence.runs.get(reference.run);
     return (
         (source?.label ?? reference.source) +
         " / " +

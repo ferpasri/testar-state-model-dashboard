@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, test, vi } from "vitest";
-import { Replay } from "../src/evidence/model";
+import { Replay } from "../src/evidence/reconstructed-evidence";
 import { manifestSchema } from "../src/evidence/schema";
 import { importDirectory, lines, type InputFile } from "../src/evidence/import";
 import { imageDimensions } from "../src/evidence/images";
@@ -44,22 +44,22 @@ describe("file import and safety", () => {
         const sources = await importDirectory(input);
         expect(sources).toHaveLength(2);
         expect(sources[0].id).not.toBe(sources[1].id);
-        expect(Array.from(sources[0].model.observations.keys())).toEqual(
-            Array.from(sources[1].model.observations.keys()),
+        expect(Array.from(sources[0].evidence.observations.keys())).toEqual(
+            Array.from(sources[1].evidence.observations.keys()),
         );
     });
 
     test("identifies unreadable screenshots and explains how to retry", async () => {
         const input = fixtureFiles(initial).map((item) => ({
             ...item,
-            path: "model/" + item.path,
+            path: "evidence/" + item.path,
         }));
         const artifact = input.find((item) => item.path.endsWith(".png"))!;
         vi.spyOn(artifact.file, "arrayBuffer").mockRejectedValue(
             new DOMException("A requested file could not be found.", "NotFoundError"),
         );
 
-        await expect(importDirectory(input)).rejects.toThrow("model: artifacts/");
+        await expect(importDirectory(input)).rejects.toThrow("evidence: artifacts/");
         await expect(importDirectory(input)).rejects.toThrow("shorter local path");
     });
 
@@ -107,7 +107,7 @@ describe("file import and safety", () => {
         },
     );
 
-    test("rejects duplicate paths and overlapping model folders", async () => {
+    test("rejects duplicate paths and overlapping evidence folders", async () => {
         const input = fixtureFiles(initial);
         await expect(importDirectory([...input, input[0]])).rejects.toThrow("Duplicate input");
         await expect(
@@ -132,7 +132,7 @@ describe("file import and safety", () => {
             item.path === "manifest.json"
                 ? {
                       ...item,
-                      file: new File(['{"schema_version":99,"model":"test"}'], "manifest.json"),
+                      file: new File(['{"schema_version":99,"evidence":"test"}'], "manifest.json"),
                   }
                 : item,
         );
@@ -141,26 +141,27 @@ describe("file import and safety", () => {
 
     test("reports an invalid event line and retains the original property strings", async () => {
         const altered = structuredClone(events);
-        altered[2].event.data.state.widgets[0].properties["ui.text"] =
+        altered[3].event.data.recorded_state.widgets[0].properties["ui.text"] =
             '<img src="https://example.invalid/leak" onerror="alert(1)">';
         const sources = await importDirectory(changedLog(altered));
         expect(
-            Array.from(sources[0].model.observations.values())[0].state.widgets[0].properties[
-                "ui.text"
-            ],
+            Array.from(sources[0].evidence.observations.values())[0].recorded_state.widgets[0]
+                .properties["ui.text"],
         ).toContain("onerror");
-        altered[2].event.data.candidates[0].target = "missing-widget";
-        await expect(importDirectory(changedLog(altered))).rejects.toThrow("evidence.jsonl:3");
+        altered[3].event.data.available_actions[0].target_widget = "missing-widget";
+        await expect(importDirectory(changedLog(altered))).rejects.toThrow("evidence.jsonl:4");
     });
 
-    test("rejects cyclic hierarchy before changing the replayed model", () => {
+    test("rejects cyclic hierarchy before changing the replayed evidence", () => {
         const replay = new Replay(manifest);
         replay.apply(events[0]);
         replay.apply(events[1]);
-        const altered = structuredClone(events[2]);
-        altered.event.data.state.widgets[0].parent = altered.event.data.state.widgets[0].id;
+        replay.apply(events[2]);
+        const altered = structuredClone(events[3]);
+        altered.event.data.recorded_state.widgets[0].parent =
+            altered.event.data.recorded_state.widgets[0].id;
         expect(() => replay.apply(altered)).toThrow("cycle");
-        expect(replay.model.observations.size).toBe(0);
+        expect(replay.evidence.observations.size).toBe(0);
     });
 
     test("rejects conflicting repeated event identities", () => {
@@ -169,13 +170,13 @@ describe("file import and safety", () => {
         const altered = structuredClone(events[0]);
         altered.event.data.producer = "changed";
         expect(() => replay.apply(altered)).toThrow("conflicting");
-        expect(replay.model.eventCount).toBe(1);
+        expect(replay.evidence.eventCount).toBe(1);
     });
 
     test("bounds nested JSON and image dimensions", () => {
         expect(() => parseJson("[".repeat(50) + "0" + "]".repeat(50))).toThrow("nesting");
         const image = new Uint8Array(
-            readFileSync(path.join(initial, events[2].event.data.artifacts[0].path)),
+            readFileSync(path.join(initial, events[3].event.data.artifacts[0].path)),
         );
         new DataView(image.buffer).setUint32(16, 100_000);
         new DataView(image.buffer).setUint32(20, 100_000);

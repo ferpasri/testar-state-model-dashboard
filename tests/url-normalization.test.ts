@@ -11,7 +11,7 @@ import {
 } from "../src/analysis";
 import { projectFields } from "../src/analysis/fields";
 import { canonical } from "../src/evidence/common";
-import { Replay } from "../src/evidence/model";
+import { Replay } from "../src/evidence/reconstructed-evidence";
 
 type UrlOptions = Omit<Extract<Transform, { op: "url" }>, "op">;
 
@@ -38,37 +38,52 @@ function definition(options: UrlOptions = {}): MatchingDefinition {
 }
 
 function source(id: string, address: string): AnalysisSource {
-    const replay = new Replay({ schema_version: 2, model: "model" });
+    const replay = new Replay({ schema_version: 3, evidence_id: "evidence" });
     replay.apply({
-        schema_version: 2,
+        schema_version: 3,
         id: "started",
         event: {
-            kind: "run_started",
+            event_type: "test_run_started",
             data: { id: "run", producer: "generic", source_run: "run", properties: {} },
         },
     });
     replay.apply({
-        schema_version: 2,
+        schema_version: 3,
+        id: "sequence-started",
+        event: {
+            event_type: "test_sequence_started",
+            data: {
+                id: "sequence",
+                test_run: "run",
+                sequence_index: 1,
+                source_sequence: "1",
+                properties: {},
+            },
+        },
+    });
+    replay.apply({
+        schema_version: 3,
         id: "captured",
         event: {
-            kind: "observed",
+            event_type: "observation_recorded",
             data: {
                 id: "observation",
-                run: "run",
-                sequence: 0,
+                test_sequence: "sequence",
+                observation_index: 0,
                 timestamp_micros: 0,
-                state: {
+                recorded_state: {
                     id: "state",
                     properties: { "ui.url": address },
                     widgets: [],
                     capture: "complete",
                 },
-                candidates: [],
+                available_action_scope: "unknown",
+                available_actions: [],
                 artifacts: [],
             },
         },
     });
-    return { id, label: id, fingerprint: "fingerprint-" + id, model: replay.model };
+    return { id, label: id, fingerprint: "fingerprint-" + id, evidence: replay.evidence };
 }
 
 describe("explicit URL path parameter normalization", () => {
@@ -237,8 +252,10 @@ describe("explicit URL path parameter normalization", () => {
             "https://example.test/login;session=one",
             "https://example.test/login;session=two",
         ]);
-        expect(sources[0].model.observations.get("observation")!.state.properties["ui.url"]).toBe(
-            "https://example.test/login;session=one",
-        );
+        expect(
+            sources[0].evidence.observations.get("observation")!.recorded_state.properties[
+                "ui.url"
+            ],
+        ).toBe("https://example.test/login;session=one");
     });
 });

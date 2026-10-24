@@ -1,5 +1,5 @@
 import { propertyGroups } from "./property-evidence";
-import type { EvidenceModel } from "./model";
+import type { ReconstructedEvidence } from "./reconstructed-evidence";
 import type { Observation } from "./schema";
 
 export interface WidgetCoverage {
@@ -25,10 +25,12 @@ function emptyCoverage(): ObservationCoverage {
     };
 }
 
-export function evaluationCoverage(model: EvidenceModel): Map<string, ObservationCoverage> {
+export function evaluationCoverage(
+    evidence: ReconstructedEvidence,
+): Map<string, ObservationCoverage> {
     const index = new Map<string, ObservationCoverage>();
-    for (const { data } of model.checks) {
-        const target = data.target;
+    for (const { data } of evidence.oracleResults) {
+        const target = data.oracle_target;
         if (!("observation" in target)) {
             continue;
         }
@@ -38,25 +40,25 @@ export function evaluationCoverage(model: EvidenceModel): Map<string, Observatio
             index.set(target.observation, coverage);
         }
         coverage.directResults++;
-        if (target.kind === "observation") {
+        if (target.target_type === "observation") {
             coverage.observationResults++;
         } else {
             coverage.detailedResults++;
         }
-        if (target.kind === "state_property") {
+        if (target.target_type === "state_property") {
             coverage.stateProperties.set(
                 target.property,
                 (coverage.stateProperties.get(target.property) ?? 0) + 1,
             );
         }
-        if (target.kind === "widget" || target.kind === "widget_property") {
+        if (target.target_type === "widget" || target.target_type === "widget_property") {
             let widget = coverage.widgets.get(target.widget);
             if (!widget) {
                 widget = { results: 0, properties: new Map() };
                 coverage.widgets.set(target.widget, widget);
             }
             widget.results++;
-            if (target.kind === "widget_property") {
+            if (target.target_type === "widget_property") {
                 widget.properties.set(
                     target.property,
                     (widget.properties.get(target.property) ?? 0) + 1,

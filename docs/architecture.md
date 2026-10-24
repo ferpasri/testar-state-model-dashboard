@@ -18,19 +18,19 @@ The same application build should support public hosting and self-hosting. A com
 
 ## Responsibilities
 
-| Part                  | Responsibility                                                                                                            |
-| --------------------- | ------------------------------------------------------------------------------------------------------------------------- |
-| Import and validation | Read selected files, identify supported formats, validate records and references, and verify artifact hashes.             |
-| Evidence model        | Preserve imported records and expose queries over runs, observations, executions, widgets, properties, and check results. |
-| Analysis              | Build indexes, calculate groups, and create derived relationships with traceable inputs.                                  |
-| Interface             | Present graphs, ordered traces, screenshots, details, filters, and validation messages.                                   |
-| Workspace             | Hold the user's imports, selections, annotations, grouping settings, and relationships.                                   |
+| Part                   | Responsibility                                                                                                             |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| Import and validation  | Read selected files, identify supported formats, validate records and references, and verify artifact hashes.              |
+| Reconstructed evidence | Preserve imported records and expose queries over runs, observations, executions, widgets, properties, and oracle results. |
+| Analysis               | Build indexes, calculate groups, and create derived relationships with traceable inputs.                                   |
+| Interface              | Present graphs, ordered traces, screenshots, details, filters, and validation messages.                                    |
+| Workspace              | Hold the user's imports, selections, annotations, grouping settings, and relationships.                                    |
 
 The evidence and analysis logic should be separate from React components and graph-rendering objects so it can be tested independently.
 
 ## Shared input contract
 
-A generic model consists of a manifest, JSONL event evidence, and referenced artifacts. The specs define its fields and meaning. The dashboard checks the declared schema version against the versions it supports, then validates records and their relationships.
+An evidence trace consists of a manifest, JSONL event evidence, and referenced artifacts. The specs define its fields and meaning. The dashboard checks the declared schema version against the versions it supports, then validates records and their relationships.
 
 Matching a schema version is the first compatibility check. Import also checks event identities, ordering, references, widget hierarchies, execution lifecycle, and artifact integrity. Validation messages identify the source file and relevant line or record. Shared conformance cases come from published specs releases, with the selected release recorded by development tooling.
 
@@ -40,7 +40,7 @@ Each import receives a local source identity. Record identities are interpreted 
 
 Original records describe what the producer captured. The dashboard preserves them while maintaining grouping rules, annotations, and user-created relationships separately.
 
-A concrete trace shows ordered observations connected by completed action executions. Selection, submission, rejection, and incomplete executions retain their recorded meaning. Check results show their recorded targets and statuses. Capture limits and unavailable information remain visible to the user.
+A concrete trace shows ordered observations connected by completed action executions. Selected actions, execution results, recorded transitions, and incomplete executions retain their recorded meaning. Oracle results show their recorded targets and statuses. Capture limits and unavailable information remain visible to the user.
 
 Users define abstractions through a small versioned DSL, initially represented as JSON. Default presets and custom definitions use the same pipeline: select evidence, filter widgets or properties, normalize changing data, build comparison representations, and group observations or actions. Each group retains links to its contributing evidence. See [abstraction and derived models](abstraction.md) for the language direction and traceability requirements.
 
@@ -50,7 +50,7 @@ Graph views should support filtering, trace highlighting, and inspecting a selec
 
 ## Supporting documents
 
-SUT documentation, requirements, specifications, and BDD scenarios provide context for execution evidence. A document or a particular section can be associated with a run, observation, action execution, widget, or check result.
+SUT documentation, requirements, specifications, and BDD scenarios provide context for execution evidence. A document or a particular section can be associated with a run, observation, action execution, widget, or oracle result.
 
 Document identity, provenance, section references, and relationship types need a shared contract when these associations become portable between tools. Changes to that contract belong in the specs repository. Dashboard-specific presentation and workspace settings belong here.
 
@@ -70,4 +70,4 @@ The initial workspace lives in browser memory. Persistent browser storage can be
 
 Use shared specs conformance cases for generic input behavior. Add focused dashboard tests for multi-source identities, grouping membership, trace selection, validation messages, unsafe content, resource limits, and artifact handling.
 
-Browser tests exercise local file import, graph/detail navigation, screenshots, check-result targets, and the privacy boundary. Representative larger traces measure import time, memory use, responsiveness, and graph behavior before selecting practical support limits.
+Browser tests exercise local file import, graph/detail navigation, screenshots, oracle-result targets, and the privacy boundary. Representative larger traces measure import time, memory use, responsiveness, and graph behavior before selecting practical support limits.

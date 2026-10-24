@@ -1,5 +1,6 @@
+import { testRunForSequence } from "../evidence/reconstructed-evidence";
 import { canonical } from "../evidence/common";
-import type { RecordedExecution } from "../evidence/model";
+import type { RecordedExecution } from "../evidence/reconstructed-evidence";
 import { observationGaps } from "../evidence/trace";
 import {
     buildEvidenceIndex,
@@ -51,7 +52,7 @@ export function buildDerivedModel(
         addNode(
             {
                 id: "unmatched:" + key,
-                label: "Unmatched observation " + indexed.observation.sequence,
+                label: "Unmatched observation " + indexed.observation.observation_index,
                 members: [{ ...indexed.reference }],
                 unmatchedReason:
                     unmatched.get(key) ??
@@ -163,14 +164,18 @@ function connectExecution(
     unlinked: UnlinkedExecution[],
 ): void {
     const data = execution.execution;
-    const reference: ExecutionReference = { source: source.id, run: data.run, execution: data.id };
+    const reference: ExecutionReference = {
+        source: source.id,
+        run: testRunForSequence(source.evidence, data.test_sequence),
+        execution: data.id,
+    };
     const origin: EvidenceReference = {
         source: source.id,
-        run: data.run,
-        observation: data.source,
+        run: testRunForSequence(source.evidence, data.test_sequence),
+        observation: data.source_observation,
     };
     const sourceNode = nodeByObservation.get(referenceKey(origin)) ?? null;
-    if (execution.status !== "observed") {
+    if (execution.status !== "completed") {
         unlinked.push({
             reference,
             sourceNode,
@@ -181,11 +186,11 @@ function connectExecution(
     }
     const result: EvidenceReference = {
         source: source.id,
-        run: data.run,
-        observation: execution.result ?? "",
+        run: testRunForSequence(source.evidence, data.test_sequence),
+        observation: execution.resultingObservation ?? "",
     };
     const targetNode = nodeByObservation.get(referenceKey(result));
-    const action = index.actions.get(canonical([source.id, data.action]))?.action;
+    const action = index.actions.get(canonical([source.id, data.action_description]))?.action;
     if (!sourceNode || !targetNode || !action) {
         unlinked.push({
             reference,
@@ -195,11 +200,11 @@ function connectExecution(
                 ? "The source observation is unavailable in the selected evidence."
                 : !targetNode
                   ? "The resulting observation is unavailable in the selected run."
-                  : "The original action definition is unavailable.",
+                  : "The original action description is unavailable.",
         });
         return;
     }
-    const id = canonical(["execution", sourceNode, targetNode, action.kind]);
+    const id = canonical(["execution", sourceNode, targetNode, action.action_type]);
     let edge = edges.get(id);
     if (!edge) {
         edge = {
@@ -208,7 +213,7 @@ function connectExecution(
             source: sourceNode,
             target: targetNode,
             label: "",
-            actionKind: action.kind,
+            actionKind: action.action_type,
             executions: [],
             orderLinks: [],
         };
@@ -226,7 +231,7 @@ function connectObservationOrder(
         const observations = [...index.observations.values()]
             .filter((item) => item.source.id === source.id)
             .map((item) => item.observation);
-        for (const gap of observationGaps(source.model, observations)) {
+        for (const gap of observationGaps(source.evidence, observations)) {
             const origin = { source: source.id, run: gap.run, observation: gap.source };
             const result = { source: source.id, run: gap.run, observation: gap.target };
             const sourceNode = nodeByObservation.get(referenceKey(origin));
@@ -255,15 +260,15 @@ function connectObservationOrder(
 
 function executionReason(status: RecordedExecution["status"]): string {
     switch (status) {
-        case "selected":
-            return "The action was selected without a recorded submission or resulting observation.";
-        case "submitted":
-            return "The action was submitted without a recorded resulting observation.";
-        case "rejected":
-            return "The tool rejected the action; no result transition is recorded.";
+        case "awaiting_execution_result":
+            return "The action was selected without a recorded execution result or resulting observation.";
+        case "awaiting_resulting_observation":
+            return "The action returned without a recorded resulting observation.";
+        case "failed":
+            return "The action execution reported an error; no recorded transition is available.";
         case "incomplete":
             return "The execution ended without a recorded resulting observation.";
-        case "observed":
+        case "completed":
             return "The recorded resulting observation is unavailable.";
     }
 }

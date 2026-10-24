@@ -12,20 +12,20 @@ import type { Observation } from "../src/evidence/schema";
 function source(id: string, properties: Record<string, unknown>): AnalysisSource {
     const observation: Observation = {
         id: "visit",
-        run: "run",
-        sequence: 1,
+        test_sequence: "run",
+        observation_index: 1,
         timestamp_micros: 1,
-        state: { id: "state", properties, widgets: [], capture: "complete" },
-        candidates: [],
+        recorded_state: { id: "state", properties, widgets: [], capture: "complete" },
+        available_actions: [],
         artifacts: [],
-        candidate_scope: "unknown",
+        available_action_scope: "unknown",
     };
     return {
         id,
         label: id,
         fingerprint: id,
-        model: {
-            manifest: { schema_version: 2, model: id },
+        evidence: {
+            manifest: { schema_version: 3, evidence_id: id },
             eventCount: 1,
             runs: new Map([
                 [
@@ -41,10 +41,24 @@ function source(id: string, properties: Record<string, unknown>): AnalysisSource
                 ],
             ]),
             observations: new Map([["visit", observation]]),
-            snapshots: new Map([["state", observation.state]]),
+            recordedStates: new Map([["state", observation.recorded_state]]),
+            sequences: new Map(
+                [...new Set([observation].map((item) => item.test_sequence))].map((id) => [
+                    id,
+                    {
+                        id,
+                        test_run: id,
+                        sequence_index: 1,
+                        source_sequence: id,
+                        properties: {},
+                        status: "finished",
+                        reason: "finished",
+                    },
+                ]),
+            ),
             actions: new Map(),
             executions: new Map(),
-            checks: [],
+            oracleResults: [],
         },
     };
 }
@@ -125,14 +139,14 @@ describe("page matching defaults", () => {
         ];
         const { result, sources } = await preview(properties, custom);
         expect(result.groups).toHaveLength(1);
-        const model = buildDerivedModel(result, sources);
-        expect(model.nodes[0].label).toContain("Account");
-        expect(model.nodes[0].label.indexOf("Account")).toBeLessThan(
-            model.nodes[0].label.indexOf("address"),
+        const evidence = buildDerivedModel(result, sources);
+        expect(evidence.nodes[0].label).toContain("Account");
+        expect(evidence.nodes[0].label.indexOf("Account")).toBeLessThan(
+            evidence.nodes[0].label.indexOf("address"),
         );
-        expect(sources[0].model.observations.get("visit")!.state.properties["ui.url"]).toBe(
-            url + ";session=one",
-        );
+        expect(
+            sources[0].evidence.observations.get("visit")!.recorded_state.properties["ui.url"],
+        ).toBe(url + ";session=one");
     });
 
     it("puts a selected captured title before address text in graph labels", async () => {

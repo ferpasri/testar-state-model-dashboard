@@ -58,7 +58,7 @@ function NodeInspector({
     const screenshots = [];
     for (const reference of node.members) {
         const source = sources.find((item) => item.id === reference.source);
-        const observation = source?.model.observations.get(reference.observation);
+        const observation = source?.evidence.observations.get(reference.observation);
         const artifact = observation?.artifacts.find(
             (item) => item.media_type === "image/png" || item.media_type === "image/jpeg",
         );
@@ -105,7 +105,7 @@ function NodeInspector({
                                 <Screenshot
                                     source={item.source}
                                     artifact={item.artifact}
-                                    sequence={item.observation.sequence}
+                                    sequence={item.observation.observation_index}
                                 />
                             </div>
                         ))}
@@ -114,21 +114,22 @@ function NodeInspector({
             <h3>Original observations</h3>
             {node.members.slice(0, limit).map((reference) => {
                 const source = sources.find((item) => item.id === reference.source);
-                const observation = source?.model.observations.get(reference.observation);
+                const observation = source?.evidence.observations.get(reference.observation);
                 return (
                     <article className="derived-member" key={JSON.stringify(reference)}>
                         <strong>{evidenceLabel(sources, reference)}</strong>
                         <p className="muted">
-                            Observation {observation?.sequence} / capture:{" "}
-                            {observation?.state.capture}
+                            Observation {observation?.observation_index} / capture:{" "}
+                            {observation?.recorded_state.capture}
                         </p>
                         <p>
                             {displayValue(
-                                observation?.state.properties["ui.title"] ?? reference.observation,
+                                observation?.recorded_state.properties["ui.title"] ??
+                                    reference.observation,
                             )}
                         </p>
                         <p className="muted">
-                            {displayValue(observation?.state.properties["ui.url"] ?? "")}
+                            {displayValue(observation?.recorded_state.properties["ui.url"] ?? "")}
                         </p>
                         <button className="quiet" onClick={() => onOpenObservation(reference)}>
                             Open original observation
@@ -171,31 +172,36 @@ function EdgeInspector({
                     </p>
                     {edge.executions.slice(0, limit).map((reference) => {
                         const source = sources.find((item) => item.id === reference.source);
-                        const record = source?.model.executions.get(reference.execution);
-                        const action = record && source?.model.actions.get(record.execution.action);
+                        const record = source?.evidence.executions.get(reference.execution);
+                        const action =
+                            record &&
+                            source?.evidence.actions.get(record.execution.action_description);
                         const sourceObservation =
-                            record && source?.model.observations.get(record.execution.source);
-                        const resultObservation = record?.result
-                            ? source?.model.observations.get(record.result)
+                            record &&
+                            source?.evidence.observations.get(record.execution.source_observation);
+                        const resultObservation = record?.resultingObservation
+                            ? source?.evidence.observations.get(record.resultingObservation)
                             : undefined;
                         return (
                             <article className="derived-execution" key={JSON.stringify(reference)}>
                                 <strong>{evidenceLabel(sources, reference)}</strong>
                                 <p>
-                                    {action?.kind} / observation {sourceObservation?.sequence} →{" "}
-                                    {resultObservation?.sequence}
+                                    {action?.action_type} / observation{" "}
+                                    {sourceObservation?.observation_index} →{" "}
+                                    {resultObservation?.observation_index}
                                 </p>
                                 <p className="muted">
-                                    Target widget: {record?.execution.target ?? "No widget target"}
+                                    Target widget:{" "}
+                                    {record?.execution.target_widget ?? "No widget target"}
                                 </p>
                                 <details>
                                     <summary>Recorded execution details</summary>
                                     <pre>
                                         {displayValue({
                                             execution: reference.execution,
-                                            action: record?.execution.action,
+                                            action: record?.execution.action_description,
                                             parameters: record?.execution.parameters,
-                                            target: record?.execution.target,
+                                            target: record?.execution.target_widget,
                                         })}
                                     </pre>
                                 </details>
@@ -218,7 +224,7 @@ function EdgeInspector({
                 <>
                     <p className="notice">
                         These observations are consecutive in their original runs. No completed
-                        execution connects each pair. The evidence does not establish that an action
+                        execution connects each pair. The model does not establish that an action
                         happened.
                     </p>
                     {edge.orderLinks.slice(0, limit).map((link) => (

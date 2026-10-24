@@ -11,7 +11,7 @@ import {
 } from "./types";
 
 interface WidgetNode {
-    widget: Observation["state"]["widgets"][number];
+    widget: Observation["recorded_state"]["widgets"][number];
     children: WidgetNode[];
     parent: WidgetNode | null;
 }
@@ -22,17 +22,17 @@ export function projectObservation(
     account: (value: unknown) => void = () => {},
 ): ObservationProjection {
     const { observation, reference } = indexed;
-    const state = projectFields(observation.state.properties, definition.state);
+    const state = projectFields(observation.recorded_state.properties, definition.state);
     const projectionBudget = new ComparisonBudget();
     projectionBudget.account(state.projection);
     const comparison: Record<string, unknown> = { state: state.projection };
     if (definition.capture === "same") {
-        comparison.capture = observation.state.capture;
+        comparison.capture = observation.recorded_state.capture;
     }
     const member = {
         reference,
-        sequence: observation.sequence,
-        capture: observation.state.capture,
+        sequence: observation.observation_index,
+        capture: observation.recorded_state.capture,
         stateFields: state.explanations,
         includedWidgets: 0,
         excludedWidgets: 0,
@@ -40,11 +40,11 @@ export function projectObservation(
     if (!definition.widgets) {
         return { comparison, member, widgets: [], informative: state.informative };
     }
-    if (observation.state.capture === "unavailable") {
+    if (observation.recorded_state.capture === "unavailable") {
         throw new Error("Widget capture is unavailable for this observation.");
     }
     const policy = definition.widgets;
-    const nodes = makeTree(observation.state.widgets);
+    const nodes = makeTree(observation.recorded_state.widgets);
     const excluded = new Set<WidgetNode>();
     for (const node of nodes) {
         if (
@@ -121,7 +121,7 @@ export function projectObservation(
     return { comparison, member, widgets, informative };
 }
 
-function makeTree(widgets: Observation["state"]["widgets"]): WidgetNode[] {
+function makeTree(widgets: Observation["recorded_state"]["widgets"]): WidgetNode[] {
     const nodes = widgets.map((widget) => ({ widget, children: [], parent: null }) as WidgetNode);
     const byId = new Map(nodes.map((node) => [node.widget.id, node]));
     for (const node of nodes) {

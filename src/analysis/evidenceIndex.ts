@@ -1,5 +1,6 @@
+import { testRunForSequence, compareIndex } from "../evidence/reconstructed-evidence";
 import { canonical } from "../evidence/common";
-import type { RecordedExecution, RecordedRun } from "../evidence/model";
+import type { RecordedExecution, RecordedRun } from "../evidence/reconstructed-evidence";
 import type { EventData, Observation } from "../evidence/schema";
 import {
     MATCHING_LIMITS,
@@ -20,9 +21,9 @@ export interface EvidenceIndex {
     observations: Map<string, IndexedObservation>;
     widgets: Map<
         string,
-        { reference: EvidenceReference; widget: Observation["state"]["widgets"][number] }
+        { reference: EvidenceReference; widget: Observation["recorded_state"]["widgets"][number] }
     >;
-    actions: Map<string, { source: AnalysisSource; action: EventData<"action_defined"> }>;
+    actions: Map<string, { source: AnalysisSource; action: EventData<"action_described"> }>;
     executions: Map<string, { source: AnalysisSource; execution: RecordedExecution }>;
     counts: IndexCounts;
 }
@@ -68,7 +69,7 @@ export function buildEvidenceIndex(
         sourceIds.add(source.id);
         fingerprints.add(source.fingerprint);
         const includedRuns = new Set<string>();
-        for (const run of [...source.model.runs.values()].sort((left, right) =>
+        for (const run of [...source.evidence.runs.values()].sort((left, right) =>
             compare(left.id, right.id),
         )) {
             const key = runKey(source.id, run.id);
@@ -83,18 +84,20 @@ export function buildEvidenceIndex(
         }
         index.sources.set(source.id, source);
         const actions = new Set<string>();
-        const observations = [...source.model.observations.values()]
-            .filter((observation) => includedRuns.has(observation.run))
+        const observations = [...source.evidence.observations.values()]
+            .filter((observation) =>
+                includedRuns.has(testRunForSequence(source.evidence, observation.test_sequence)),
+            )
             .sort(
                 (left, right) =>
-                    compare(left.run, right.run) ||
-                    left.sequence - right.sequence ||
+                    compare(left.test_sequence, right.test_sequence) ||
+                    compareIndex(left.observation_index, right.observation_index) ||
                     compare(left.id, right.id),
             );
         for (const observation of observations) {
             const reference = {
                 source: source.id,
-                run: observation.run,
+                run: testRunForSequence(source.evidence, observation.test_sequence),
                 observation: observation.id,
             };
             index.observations.set(referenceKey(reference), { source, reference, observation });
@@ -103,7 +106,7 @@ export function buildEvidenceIndex(
                     "Select fewer runs: matching supports at most 10,000 observations.",
                 );
             }
-            for (const widget of observation.state.widgets) {
+            for (const widget of observation.recorded_state.widgets) {
                 const widgetReference = { ...reference, widget: widget.id };
                 index.widgets.set(referenceKey(widgetReference), {
                     reference: widgetReference,
@@ -115,24 +118,32 @@ export function buildEvidenceIndex(
                     );
                 }
             }
-            for (const candidate of observation.candidates) {
-                actions.add(candidate.action);
+            for (const candidate of observation.available_actions) {
+                actions.add(candidate.action_description);
             }
         }
-        for (const execution of source.model.executions.values()) {
-            if (includedRuns.has(execution.execution.run)) {
+        for (const execution of source.evidence.executions.values()) {
+            if (
+                includedRuns.has(
+                    testRunForSequence(source.evidence, execution.execution.test_sequence),
+                )
+            ) {
                 index.executions.set(
-                    canonical([source.id, execution.execution.run, execution.execution.id]),
+                    canonical([
+                        source.id,
+                        testRunForSequence(source.evidence, execution.execution.test_sequence),
+                        execution.execution.id,
+                    ]),
                     {
                         source,
                         execution,
                     },
                 );
-                actions.add(execution.execution.action);
+                actions.add(execution.execution.action_description);
             }
         }
         for (const id of [...actions].sort(compare)) {
-            const action = source.model.actions.get(id);
+            const action = source.evidence.actions.get(id);
             if (action) {
                 index.actions.set(canonical([source.id, id]), { source, action });
             }

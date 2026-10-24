@@ -2,11 +2,11 @@ import { expect, test, type Page, type TestInfo } from "@playwright/test";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import type { DerivedModel, MatchingPreview } from "../../src/analysis";
-import type { Envelope } from "../../src/evidence/schema";
+import type { EvidenceEvent } from "../../src/evidence/schema";
 import { sharedCases } from "../support";
 
 const broader = sharedCases().find(
-    (directory) => path.basename(directory) === "broader-check-targets",
+    (directory) => path.basename(directory) === "broader-oracle-targets",
 )!;
 
 function sourceVariant(
@@ -20,37 +20,39 @@ function sourceVariant(
         path.join(directory, "manifest.json"),
         readFileSync(path.join(broader, "manifest.json")),
     );
-    const entries: Envelope[] = readFileSync(path.join(broader, "evidence.jsonl"), "utf8")
+    const entries: EvidenceEvent[] = readFileSync(path.join(broader, "evidence.jsonl"), "utf8")
         .trimEnd()
         .split("\n")
         .map((line) => JSON.parse(line));
     for (const { event } of entries) {
-        if (event.kind === "run_started") {
+        if (event.event_type === "test_run_started") {
             event.data.producer = name;
         }
-        if (event.kind === "observed") {
-            event.data.state.properties["ui.url"] =
-                "https://sut.example/page/" + (options.selfLoop ? 1 : event.data.sequence);
+        if (event.event_type === "observation_recorded") {
+            event.data.recorded_state.properties["ui.url"] =
+                "https://sut.example/page/" + (options.selfLoop ? 1 : event.data.observation_index);
             event.data.artifacts = [];
         }
     }
     if (options.gap) {
         const observations = entries.flatMap(({ event }) =>
-            event.kind === "observed" ? [event.data] : [],
+            event.event_type === "observation_recorded" ? [event.data] : [],
         );
         const following = structuredClone(observations[1]);
         following.id = "browser:observation:3";
-        following.sequence = 3;
+        following.observation_index = 3;
         following.timestamp_micros = 3000;
-        following.state.id = "browser:snapshot:3";
-        following.state.properties["ui.title"] = "Step 3";
-        following.state.properties["ui.url"] = "https://sut.example/page/3";
-        const entry: Envelope = {
-            schema_version: 2,
+        following.recorded_state.id = "browser:snapshot:3";
+        following.recorded_state.properties["ui.title"] = "Step 3";
+        following.recorded_state.properties["ui.url"] = "https://sut.example/page/3";
+        const entry: EvidenceEvent = {
+            schema_version: 3,
             id: "browser:event:observation:3",
-            event: { kind: "observed", data: following },
+            event: { event_type: "observation_recorded", data: following },
         };
-        const finished = entries.findIndex(({ event }) => event.kind === "run_finished");
+        const finished = entries.findIndex(
+            ({ event }) => event.event_type === "test_sequence_finished",
+        );
         // This visit has no recorded execution connecting it to the previous visit.
         entries.splice(finished, 0, entry);
     }
@@ -64,7 +66,7 @@ function sourceVariant(
 async function openDerivedModel(page: Page, directories: string[]): Promise<void> {
     await page.goto("/");
     for (const [index, directory] of directories.entries()) {
-        await page.getByLabel("Model directory").setInputFiles(directory);
+        await page.getByLabel("Evidence directory").setInputFiles(directory);
         await expect(page.locator(".source")).toHaveCount(index + 1);
     }
     await page.getByRole("button", { name: "Matching preview", exact: true }).click();
@@ -172,7 +174,7 @@ test("combines recorded transitions while preserving source-scoped execution and
     expect(errors).toEqual([]);
 });
 
-test("keeps observation-order links separate and highlights a run without removing model data", async ({
+test("keeps observation-order links separate and highlights a run without removing evidence data", async ({
     page,
 }, info) => {
     await openDerivedModel(page, [

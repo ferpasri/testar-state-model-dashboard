@@ -48,7 +48,7 @@ export async function previewMatching(
             }
             unmatched.push({
                 reference: indexed.reference,
-                sequence: indexed.observation.sequence,
+                sequence: indexed.observation.observation_index,
                 reason:
                     error instanceof Error ? error.message : "The observation cannot be compared.",
             });

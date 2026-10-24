@@ -49,7 +49,7 @@ export function MatchingResults({ preview, sources, groupFocus, onOpenObservatio
 
     function sourceName(reference: EvidenceReference) {
         const source = sources.find((item) => item.id === reference.source);
-        const run = source?.model.runs.get(reference.run);
+        const run = source?.evidence.runs.get(reference.run);
         return (
             (source?.label ?? reference.source) +
             " / " +
@@ -244,7 +244,7 @@ function GroupDetails({
             ) : (
                 <>
                     <p className="muted">
-                        A matching description identifies candidates for correspondence. Repeated
+                        A matching description proposes widget correspondences. Repeated
                         descriptions can refer to several widgets in one observation.
                     </p>
                     {group.widgetCorrespondences.slice(0, widgetLimit).map((item) => (

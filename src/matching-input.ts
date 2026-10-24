@@ -1,3 +1,4 @@
+import { testRunForSequence } from "./evidence/reconstructed-evidence";
 import { MATCHING_LIMITS, runKey, type AnalysisSource } from "./analysis";
 import type { ImportedSource } from "./evidence/import";
 
@@ -11,19 +12,19 @@ export function matchingInputs(
     const result: AnalysisSource[] = [];
     for (const source of sources) {
         const runs = new Map(
-            Array.from(source.model.runs).filter(([id]) => selected.has(runKey(source.id, id))),
+            Array.from(source.evidence.runs).filter(([id]) => selected.has(runKey(source.id, id))),
         );
         if (runs.size === 0) {
             continue;
         }
         const observations = new Map(
-            Array.from(source.model.observations).filter(([, observation]) =>
-                runs.has(observation.run),
+            Array.from(source.evidence.observations).filter(([, observation]) =>
+                runs.has(testRunForSequence(source.evidence, observation.test_sequence)),
             ),
         );
         for (const observation of observations.values()) {
             observationsCount += 1;
-            widgetsCount += observation.state.widgets.length;
+            widgetsCount += observation.recorded_state.widgets.length;
         }
         if (
             observationsCount > MATCHING_LIMITS.observations ||
@@ -34,30 +35,33 @@ export function matchingInputs(
             );
         }
         const executions = new Map(
-            Array.from(source.model.executions).filter(([, execution]) =>
-                runs.has(execution.execution.run),
+            Array.from(source.evidence.executions).filter(([, execution]) =>
+                runs.has(testRunForSequence(source.evidence, execution.execution.test_sequence)),
             ),
         );
         const actionIds = new Set([
             ...Array.from(observations.values()).flatMap((observation) =>
-                observation.candidates.map((candidate) => candidate.action),
+                observation.available_actions.map((candidate) => candidate.action_description),
             ),
-            ...Array.from(executions.values(), (execution) => execution.execution.action),
+            ...Array.from(
+                executions.values(),
+                (execution) => execution.execution.action_description,
+            ),
         ]);
         result.push({
             id: source.id,
             label: source.label,
             fingerprint: source.fingerprint,
-            model: {
-                ...source.model,
+            evidence: {
+                ...source.evidence,
                 runs,
                 observations,
                 executions,
                 actions: new Map(
-                    Array.from(source.model.actions).filter(([id]) => actionIds.has(id)),
+                    Array.from(source.evidence.actions).filter(([id]) => actionIds.has(id)),
                 ),
-                checks: [],
-                snapshots: new Map(),
+                oracleResults: [],
+                recordedStates: new Map(),
             },
         });
     }

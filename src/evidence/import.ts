@@ -1,5 +1,5 @@
 import { canonical, digest, EvidenceError, parseJson, requireEvidence, safePath } from "./common";
-import { Replay, type EvidenceModel } from "./model";
+import { Replay, type ReconstructedEvidence } from "./reconstructed-evidence";
 import { manifestSchema } from "./schema";
 import { imageDimensions } from "./images";
 
@@ -19,7 +19,7 @@ export interface ImportedSource {
     id: string;
     label: string;
     fingerprint: string;
-    model: EvidenceModel;
+    evidence: ReconstructedEvidence;
     artifacts: Map<string, File>;
     bytes: number;
 }
@@ -102,16 +102,16 @@ export async function importDirectory(
         .map((path) => path.slice(0, -"manifest.json".length));
     requireEvidence(
         roots.length > 0 && roots.length <= 20,
-        "Select a model folder, or a parent folder containing up to 20 models.",
+        "Select an evidence folder, or a parent folder containing up to 20 traces.",
     );
     requireEvidence(
         !roots.some((root) => roots.some((other) => other !== root && root.startsWith(other))),
-        "Nested model directories must be imported separately.",
+        "Nested evidence directories must be imported separately.",
     );
     const sources: ImportedSource[] = [];
     for (const root of roots) {
         try {
-            sources.push(await importModel(root, files, report));
+            sources.push(await importTrace(root, files, report));
         } catch (error) {
             throw new EvidenceError(
                 (root ? root.replace(/\/$/u, "") + ": " : "") +
@@ -122,7 +122,7 @@ export async function importDirectory(
     return sources;
 }
 
-async function importModel(
+async function importTrace(
     root: string,
     files: Map<string, File>,
     report: Reporter,
@@ -132,7 +132,7 @@ async function importModel(
     const manifestResult = manifestSchema.safeParse(await readManifest(manifestFile));
     requireEvidence(
         manifestResult.success,
-        "manifest.json: expected a model identity and supported schema_version (2).",
+        "manifest.json: expected an evidence identity and supported schema_version (3).",
     );
     const evidence = files.get(root + "evidence.jsonl");
     requireEvidence(
@@ -163,7 +163,7 @@ async function importModel(
         }
     }
     const artifacts = new Map<string, File>();
-    const references = Array.from(replay.model.observations.values()).flatMap(
+    const references = Array.from(replay.evidence.observations.values()).flatMap(
         (item) => item.artifacts,
     );
     const verified = new Map<string, string>();
@@ -215,14 +215,14 @@ async function importModel(
     }
     const logHash = await digest(await readBytes(evidence, "evidence.jsonl"));
     const fingerprint = await digest(
-        new TextEncoder().encode(canonical(replay.model.manifest) + ":" + logHash),
+        new TextEncoder().encode(canonical(replay.evidence.manifest) + ":" + logHash),
     );
     report({ stage: "Ready", completed: processed, total: processed });
     return {
         id: fingerprint,
         fingerprint,
-        label: root.replace(/\/$/u, "").split("/").at(-1) || replay.model.manifest.model,
-        model: replay.model,
+        label: root.replace(/\/$/u, "").split("/").at(-1) || replay.evidence.manifest.evidence_id,
+        evidence: replay.evidence,
         artifacts,
         bytes:
             evidence.size +
@@ -262,14 +262,14 @@ function fileAccessMessage(error: unknown): string | undefined {
     }
     if (error.name === "NotFoundError") {
         return (
-            "Cannot read this selected file. Select the complete model folder again. " +
-            "If the file still exists, copy the complete model folder to a shorter local path and select that copy."
+            "Cannot read this selected file. Select the complete evidence folder again. " +
+            "If the file still exists, copy the complete evidence folder to a shorter local path and select that copy."
         );
     }
     if (error.name === "NotReadableError") {
         return (
             "Cannot read this selected file. It may have changed or become unavailable. " +
-            "Select the complete model folder again after recording has finished."
+            "Select the complete evidence folder again after recording has finished."
         );
     }
     return undefined;

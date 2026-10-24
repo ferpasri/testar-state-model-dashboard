@@ -1,3 +1,4 @@
+import { testRunForSequence, compareIndex } from "./evidence/reconstructed-evidence";
 import {
     lazy,
     Suspense,
@@ -26,6 +27,7 @@ export function App() {
     const [matchingOpened, setMatchingOpened] = useState(false);
     const [sourceId, setSourceId] = useState("");
     const [runId, setRunId] = useState("");
+    const [sequenceId, setSequenceId] = useState("");
     const [observationId, setObservationId] = useState("");
     const [executionId, setExecutionId] = useState("");
     const [gapId, setGapId] = useState("");
@@ -40,11 +42,22 @@ export function App() {
     const observations = useMemo(
         () =>
             source
-                ? Array.from(source.model.observations.values())
-                      .filter((item) => item.run === runId)
-                      .sort((left, right) => left.sequence - right.sequence)
+                ? Array.from(source.evidence.observations.values())
+                      .filter(
+                          (item) =>
+                              testRunForSequence(source.evidence, item.test_sequence) === runId &&
+                              (!sequenceId || item.test_sequence === sequenceId),
+                      )
+                      .sort(
+                          (left, right) =>
+                              compareIndex(
+                                  source.evidence.sequences.get(left.test_sequence)!.sequence_index,
+                                  source.evidence.sequences.get(right.test_sequence)!
+                                      .sequence_index,
+                              ) || compareIndex(left.observation_index, right.observation_index),
+                      )
                 : [],
-        [source, runId],
+        [source, runId, sequenceId],
     );
     const observation = observations.find((item) => item.id === observationId) ?? observations[0];
     const selectObservation = useCallback((id: string) => {
@@ -61,7 +74,7 @@ export function App() {
         setExecutionId("");
     }, []);
     const gaps = useMemo(
-        () => (source ? observationGaps(source.model, observations) : []),
+        () => (source ? observationGaps(source.evidence, observations) : []),
         [source, observations],
     );
     const selectedGap = gaps.find((gap) => gap.id === gapId);
@@ -78,11 +91,11 @@ export function App() {
         () =>
             sources.reduce(
                 (counts, item) => ({
-                    observations: counts.observations + item.model.observations.size,
-                    executions: counts.executions + item.model.executions.size,
-                    checks: counts.checks + item.model.checks.length,
+                    observations: counts.observations + item.evidence.observations.size,
+                    executions: counts.executions + item.evidence.executions.size,
+                    oracleResults: counts.oracleResults + item.evidence.oracleResults.length,
                 }),
-                { observations: 0, executions: 0, checks: 0 },
+                { observations: 0, executions: 0, oracleResults: 0 },
             ),
         [sources],
     );
@@ -91,27 +104,39 @@ export function App() {
         setView("traces");
         setSourceId(item.id);
         setRunId(id);
+        setSequenceId("");
         setObservationId("");
         setExecutionId("");
         setGapId("");
     }
     function openOriginalObservation(reference: EvidenceReference) {
         const originalSource = sources.find((item) => item.id === reference.source);
-        const original = originalSource?.model.observations.get(reference.observation);
-        if (!originalSource || original?.run !== reference.run) {
+        const original = originalSource?.evidence.observations.get(reference.observation);
+        if (
+            !originalSource ||
+            !original ||
+            testRunForSequence(originalSource.evidence, original.test_sequence) !== reference.run
+        ) {
             return;
         }
         selectRun(originalSource, reference.run);
+        setSequenceId(original.test_sequence);
         setObservationId(reference.observation);
     }
     function openOriginalExecution(reference: ExecutionReference) {
         const originalSource = sources.find((item) => item.id === reference.source);
-        const original = originalSource?.model.executions.get(reference.execution);
-        if (!originalSource || original?.execution.run !== reference.run) {
+        const original = originalSource?.evidence.executions.get(reference.execution);
+        if (
+            !originalSource ||
+            !original ||
+            testRunForSequence(originalSource.evidence, original.execution.test_sequence) !==
+                reference.run
+        ) {
             return;
         }
         selectRun(originalSource, reference.run);
-        setObservationId(original.execution.source);
+        setSequenceId(original.execution.test_sequence);
+        setObservationId(original.execution.source_observation);
         setExecutionId(reference.execution);
     }
     function cancel() {
@@ -161,14 +186,14 @@ export function App() {
                 setSources(combined);
                 const first = loaded[0];
                 if (first) {
-                    selectRun(first, first.model.runs.keys().next().value ?? "");
+                    selectRun(first, first.evidence.runs.keys().next().value ?? "");
                 }
                 cancel();
             }
         };
         instance.onerror = () => {
             setError(
-                "The import worker stopped unexpectedly. Try a smaller model or check the browser console.",
+                "The import worker stopped unexpectedly. Try a smaller evidence or check the browser console.",
             );
             cancel();
         };
@@ -212,7 +237,7 @@ export function App() {
                         disabled={busy}
                         onClick={() => fileInput.current?.click()}
                     >
-                        Open model folder <span aria-hidden="true">↗</span>
+                        Open evidence folder <span aria-hidden="true">↗</span>
                     </button>
                 </div>
                 <input
@@ -221,7 +246,7 @@ export function App() {
                     {...directoryAttributes}
                     multiple
                     hidden
-                    aria-label="Model directory"
+                    aria-label="Evidence directory"
                     onChange={(event) => load(event.target.files)}
                 />
             </header>
@@ -265,7 +290,7 @@ export function App() {
                         disabled={busy}
                         onClick={() => fileInput.current?.click()}
                     >
-                        Open your first model folder <span aria-hidden="true">↗</span>
+                        Open your first evidence folder <span aria-hidden="true">↗</span>
                     </button>
                     <div className="welcome-foot">
                         <div>
@@ -302,7 +327,7 @@ export function App() {
                                 <span>actions</span>
                             </div>
                             <div>
-                                <strong>{totals.checks}</strong>
+                                <strong>{totals.oracleResults}</strong>
                                 <span>evaluations</span>
                             </div>
                         </div>
@@ -327,7 +352,7 @@ export function App() {
                             {sources.map((item) => (
                                 <section className="source" key={item.id}>
                                     <div className="source-heading">
-                                        <strong title={item.model.manifest.model}>
+                                        <strong title={item.evidence.manifest.evidence_id}>
                                             {item.label}
                                         </strong>
                                         <button
@@ -341,7 +366,7 @@ export function App() {
                                     <span className="source-fingerprint">
                                         SOURCE {item.fingerprint.slice(0, 10)}
                                     </span>
-                                    {Array.from(item.model.runs.values()).map((run) => (
+                                    {Array.from(item.evidence.runs.values()).map((run) => (
                                         <button
                                             key={run.id}
                                             className={
@@ -361,9 +386,9 @@ export function App() {
                                             </small>
                                         </button>
                                     ))}
-                                    {item.model.runs.size === 0 && (
+                                    {item.evidence.runs.size === 0 && (
                                         <p className="muted">
-                                            This model contains no recorded runs.
+                                            This evidence contains no recorded runs.
                                         </p>
                                     )}
                                 </section>
@@ -388,14 +413,47 @@ export function App() {
                             </Suspense>
                         </div>
                     )}
-                    {view === "matching" ? null : source && observation ? (
+                    {view === "matching" ? null : source ? (
                         <div className="run-workspace">
                             <div className="run-banner">
                                 <div>
                                     <span className="eyebrow">SELECTED RUN</span>
-                                    <h2>{source.model.runs.get(runId)?.producer}</h2>
+                                    <h2>{source.evidence.runs.get(runId)?.producer}</h2>
+                                    <label>
+                                        Test sequence
+                                        <select
+                                            aria-label="Test sequence"
+                                            value={sequenceId}
+                                            onChange={(event) => {
+                                                setSequenceId(event.target.value);
+                                                setObservationId("");
+                                                setExecutionId("");
+                                                setGapId("");
+                                            }}
+                                        >
+                                            <option value="">All test sequences</option>
+                                            {[...source.evidence.sequences.values()]
+                                                .filter((sequence) => sequence.test_run === runId)
+                                                .sort((a, b) =>
+                                                    compareIndex(
+                                                        a.sequence_index,
+                                                        b.sequence_index,
+                                                    ),
+                                                )
+                                                .map((sequence) => (
+                                                    <option key={sequence.id} value={sequence.id}>
+                                                        {"Sequence " +
+                                                            sequence.sequence_index +
+                                                            " · " +
+                                                            sequence.status +
+                                                            " · " +
+                                                            sequence.source_sequence}
+                                                    </option>
+                                                ))}
+                                        </select>
+                                    </label>
                                     <p>
-                                        {source.model.runs.get(runId)?.reason ??
+                                        {source.evidence.runs.get(runId)?.reason ??
                                             "Run is still open"}
                                     </p>
                                 </div>
@@ -404,131 +462,155 @@ export function App() {
                                     <span>observations</span>
                                 </div>
                             </div>
-                            <div className="evidence-layout">
-                                <div className="trace-column">
-                                    <Suspense
-                                        fallback={<p className="notice">Preparing trace graph…</p>}
-                                    >
-                                        <Graph
-                                            model={source.model}
-                                            observations={graphObservations}
-                                            selected={observation.id}
-                                            onSelect={selectObservation}
-                                            selectedExecution={executionId}
-                                            onSelectExecution={selectExecution}
-                                            gaps={gaps}
-                                            selectedGap={gapId}
-                                            onSelectGap={selectGap}
-                                        />
-                                    </Suspense>
-                                    {observations.length > 1000 && (
-                                        <p className="notice">
-                                            Graph shows a window of up to 1,000 observations around
-                                            the selected visit. The timeline accesses the complete
-                                            run.
-                                        </p>
-                                    )}
-                                    <section className="timeline">
-                                        <div className="panel-heading">
-                                            <div>
-                                                <span className="eyebrow">ORDERED VISITS</span>
-                                                <h2>Trace timeline</h2>
-                                            </div>
-                                            <div className="step-controls">
-                                                <button
-                                                    className="quiet"
-                                                    disabled={selectedIndex === 0}
-                                                    onClick={() =>
-                                                        selectObservation(
-                                                            observations[selectedIndex - 1].id,
-                                                        )
-                                                    }
-                                                    aria-label="Previous observation"
-                                                >
-                                                    ←
-                                                </button>
-                                                <button
-                                                    className="quiet"
-                                                    disabled={
-                                                        selectedIndex === observations.length - 1
-                                                    }
-                                                    onClick={() =>
-                                                        selectObservation(
-                                                            observations[selectedIndex + 1].id,
-                                                        )
-                                                    }
-                                                    aria-label="Next observation"
-                                                >
-                                                    →
-                                                </button>
-                                            </div>
-                                        </div>
-                                        <div className="timeline-list">
-                                            {observations
-                                                .slice(
-                                                    Math.max(0, selectedIndex - 20),
-                                                    selectedIndex + 21,
-                                                )
-                                                .map((item) => (
+                            {observation ? (
+                                <div className="evidence-layout">
+                                    <div className="trace-column">
+                                        <Suspense
+                                            fallback={
+                                                <p className="notice">Preparing trace graph…</p>
+                                            }
+                                        >
+                                            <Graph
+                                                evidence={source.evidence}
+                                                observations={graphObservations}
+                                                selected={observation.id}
+                                                onSelect={selectObservation}
+                                                selectedExecution={executionId}
+                                                onSelectExecution={selectExecution}
+                                                gaps={gaps}
+                                                selectedGap={gapId}
+                                                onSelectGap={selectGap}
+                                            />
+                                        </Suspense>
+                                        {observations.length > 1000 && (
+                                            <p className="notice">
+                                                Graph shows a window of up to 1,000 observations
+                                                around the selected visit. The timeline accesses the
+                                                complete run.
+                                            </p>
+                                        )}
+                                        <section className="timeline">
+                                            <div className="panel-heading">
+                                                <div>
+                                                    <span className="eyebrow">ORDERED VISITS</span>
+                                                    <h2>Trace timeline</h2>
+                                                </div>
+                                                <div className="step-controls">
                                                     <button
-                                                        key={item.id}
-                                                        className={
-                                                            "visit " +
-                                                            (item.id === observation.id
-                                                                ? "active"
-                                                                : "")
+                                                        className="quiet"
+                                                        disabled={selectedIndex === 0}
+                                                        onClick={() =>
+                                                            selectObservation(
+                                                                observations[selectedIndex - 1].id,
+                                                            )
                                                         }
-                                                        onClick={() => selectObservation(item.id)}
+                                                        aria-label="Previous observation"
                                                     >
-                                                        <span className="visit-number">
-                                                            {String(item.sequence).padStart(2, "0")}
-                                                        </span>
-                                                        <span>
-                                                            <strong>
-                                                                {displayValue(
-                                                                    item.state.properties[
-                                                                        "ui.title"
-                                                                    ] ?? "Observation",
-                                                                ).slice(0, 100)}
-                                                            </strong>
-                                                            <small>
-                                                                {displayValue(
-                                                                    item.state.properties[
-                                                                        "ui.url"
-                                                                    ] ?? item.id,
-                                                                ).slice(0, 180)}
-                                                            </small>
-                                                        </span>
-                                                        <span className="visit-widgets">
-                                                            {item.state.widgets.length} widgets
-                                                        </span>
+                                                        ←
                                                     </button>
-                                                ))}
-                                        </div>
-                                    </section>
+                                                    <button
+                                                        className="quiet"
+                                                        disabled={
+                                                            selectedIndex ===
+                                                            observations.length - 1
+                                                        }
+                                                        onClick={() =>
+                                                            selectObservation(
+                                                                observations[selectedIndex + 1].id,
+                                                            )
+                                                        }
+                                                        aria-label="Next observation"
+                                                    >
+                                                        →
+                                                    </button>
+                                                </div>
+                                            </div>
+                                            <div className="timeline-list">
+                                                {observations
+                                                    .slice(
+                                                        Math.max(0, selectedIndex - 20),
+                                                        selectedIndex + 21,
+                                                    )
+                                                    .map((item) => (
+                                                        <button
+                                                            key={item.id}
+                                                            className={
+                                                                "visit " +
+                                                                (item.id === observation.id
+                                                                    ? "active"
+                                                                    : "")
+                                                            }
+                                                            onClick={() =>
+                                                                selectObservation(item.id)
+                                                            }
+                                                        >
+                                                            <span
+                                                                className="visit-number"
+                                                                title={
+                                                                    "Test sequence " +
+                                                                    source.evidence.sequences.get(
+                                                                        item.test_sequence,
+                                                                    )!.sequence_index
+                                                                }
+                                                            >
+                                                                {String(
+                                                                    item.observation_index,
+                                                                ).padStart(2, "0")}
+                                                            </span>
+                                                            <span>
+                                                                <strong>
+                                                                    {displayValue(
+                                                                        item.recorded_state
+                                                                            .properties[
+                                                                            "ui.title"
+                                                                        ] ?? "Observation",
+                                                                    ).slice(0, 100)}
+                                                                </strong>
+                                                                <small>
+                                                                    {displayValue(
+                                                                        item.recorded_state
+                                                                            .properties["ui.url"] ??
+                                                                            item.id,
+                                                                    ).slice(0, 180)}
+                                                                </small>
+                                                            </span>
+                                                            <span className="visit-widgets">
+                                                                {item.recorded_state.widgets.length}{" "}
+                                                                widgets
+                                                            </span>
+                                                        </button>
+                                                    ))}
+                                            </div>
+                                        </section>
+                                    </div>
+                                    {selectedGap ? (
+                                        <ObservationGapDetails
+                                            source={source}
+                                            gap={selectedGap}
+                                            onSelectObservation={selectObservation}
+                                            onSelectExecution={selectExecution}
+                                        />
+                                    ) : executionId &&
+                                      source.evidence.executions.has(executionId) ? (
+                                        <ExecutionDetails
+                                            source={source}
+                                            executionId={executionId}
+                                            onSelectObservation={selectObservation}
+                                        />
+                                    ) : (
+                                        <Details
+                                            source={source}
+                                            observation={observation}
+                                            onSelectExecution={selectExecution}
+                                            onSelectObservation={selectObservation}
+                                        />
+                                    )}
                                 </div>
-                                {selectedGap ? (
-                                    <ObservationGapDetails
-                                        source={source}
-                                        gap={selectedGap}
-                                        onSelectObservation={selectObservation}
-                                        onSelectExecution={selectExecution}
-                                    />
-                                ) : executionId && source.model.executions.has(executionId) ? (
-                                    <ExecutionDetails
-                                        source={source}
-                                        executionId={executionId}
-                                        onSelectObservation={selectObservation}
-                                    />
-                                ) : (
-                                    <Details
-                                        source={source}
-                                        observation={observation}
-                                        onSelectExecution={selectExecution}
-                                        onSelectObservation={selectObservation}
-                                    />
-                                )}
-                            </div>
+                            ) : (
+                                <p className="notice">
+                                    No observations were recorded in this selection.
+                                </p>
+                            )}
                         </div>
                     ) : (
                         <div className="choose-run">

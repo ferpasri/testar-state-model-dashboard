@@ -85,19 +85,19 @@ function fixture(): DerivedModel {
             {
                 reference: execution("a", "pending"),
                 sourceNode: "home",
-                status: "selected",
-                reason: "No submission recorded.",
+                status: "awaiting_execution_result",
+                reason: "No execution result recorded.",
             },
             {
                 reference: execution("b", "pending"),
                 sourceNode: "shared",
-                status: "submitted",
+                status: "awaiting_resulting_observation",
                 reason: "No result recorded.",
             },
             {
                 reference: execution("c", "pending"),
                 sourceNode: "c-branch",
-                status: "rejected",
+                status: "failed",
                 reason: "Rejected by the tool.",
             },
             {
@@ -120,7 +120,7 @@ function fixture(): DerivedModel {
     };
 }
 
-describe("derived evidence source and run filtering", () => {
+describe("derived model source and run filtering", () => {
     it("preserves all supported evidence when source and run are unrestricted", () => {
         const original = fixture();
         expect(filterDerivedModel(original, { source: "all", run: "all" })).toEqual(original);
@@ -173,7 +173,7 @@ describe("derived evidence source and run filtering", () => {
             {
                 reference: execution("b", "pending"),
                 sourceNode: "shared",
-                status: "submitted",
+                status: "awaiting_resulting_observation",
                 reason: "No result recorded.",
             },
         ]);
@@ -279,7 +279,7 @@ describe("derived evidence source and run filtering", () => {
             {
                 reference: execution("a", "without-node"),
                 sourceNode: null,
-                status: "selected",
+                status: "awaiting_execution_result",
                 reason: "No source observation.",
             },
             {
@@ -291,7 +291,7 @@ describe("derived evidence source and run filtering", () => {
             {
                 reference: execution("b", "other"),
                 sourceNode: null,
-                status: "rejected",
+                status: "failed",
                 reason: "Rejected.",
             },
         ];

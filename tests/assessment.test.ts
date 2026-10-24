@@ -1,15 +1,20 @@
 import { expect, test } from "vitest";
 import { assessmentContext } from "../src/evidence/assessment";
-import type { Check } from "../src/evidence/schema";
+import type { OracleResult } from "../src/evidence/schema";
 
-function report(details: Record<string, unknown>): Check {
+function report(details: Record<string, unknown>): OracleResult {
     return {
-        run: "run",
+        test_run: "run",
+        test_sequence: "sequence",
         name: "Condition",
-        rule: { id: "rule" },
-        status: "pending",
-        target: { kind: "sequence", from_observation: "first", to_observation: "last" },
-        details,
+        oracle: { id: "rule" },
+        oracle_status: "pending",
+        oracle_target: {
+            target_type: "observation_range",
+            first_observation: "first",
+            last_observation: "last",
+        },
+        oracle_details: details,
     };
 }
 
@@ -28,18 +33,18 @@ test("shared assessments expose phase semantics and reported termination without
         terminationReason: "deadline",
     });
     expect(check).toEqual(before);
-    expect(check.status).toBe("pending");
+    expect(check.oracle_status).toBe("pending");
 });
 
 test("native phase context supplies no inferred temporal semantics", () => {
     expect(
         assessmentContext(
             report({
-                "bombadil.assessment_phase": "end_of_run",
-                "bombadil.termination_reason": "interrupted",
+                "producer.assessment_phase": "end_of_run",
+                "producer.termination_reason": "interrupted",
             }),
         ),
-    ).toEqual({ phase: "end_of_run", terminationReason: "interrupted" });
+    ).toBeUndefined();
     expect(assessmentContext(report({}))).toBeUndefined();
 });
 
@@ -48,7 +53,7 @@ test("valid shared context takes priority and malformed optional context stays u
         assessmentContext(
             report({
                 "evidence.assessment": { phase: "during_run", semantics: "recorded_interval" },
-                "bombadil.assessment_phase": "end_of_run",
+                "producer.assessment_phase": "end_of_run",
             }),
         ),
     ).toEqual({ phase: "during_run", semantics: "recorded_interval" });

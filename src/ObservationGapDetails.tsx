@@ -13,10 +13,10 @@ export function ObservationGapDetails({
     onSelectObservation: (id: string) => void;
     onSelectExecution: (id: string) => void;
 }) {
-    const from = source.model.observations.get(gap.source)!;
-    const to = source.model.observations.get(gap.target)!;
-    const attempts = Array.from(source.model.executions.values()).filter(
-        (item) => item.execution.source === from.id,
+    const from = source.evidence.observations.get(gap.source)!;
+    const to = source.evidence.observations.get(gap.target)!;
+    const attempts = Array.from(source.evidence.executions.values()).filter(
+        (item) => item.execution.source_observation === from.id,
     );
     return (
         <aside className="details">
@@ -24,22 +24,22 @@ export function ObservationGapDetails({
                 <span className="eyebrow">EVIDENCE INSPECTOR</span>
                 <h2>Observation order</h2>
                 <p>
-                    Observation {from.sequence} to {to.sequence}
+                    Observation {from.observation_index} to {to.observation_index}
                 </p>
             </div>
             <div className="detail-body">
                 <span className="badge">Unknown action</span>
                 <p className="notice">
-                    These are consecutive captures in this run. No completed action execution
-                    connects them. There may have been no action, or an action was not reported. The
-                    dashed link shows observation order only.
+                    These are consecutive observations in this test sequence. No completed action
+                    execution connects them. There may have been no action, or an action was not
+                    reported. The dashed link shows observation order only.
                 </p>
                 <div className="execution-navigation">
                     <button className="quiet" onClick={() => onSelectObservation(from.id)}>
-                        Open earlier observation ({from.sequence})
+                        Open earlier observation ({from.observation_index})
                     </button>
                     <button className="quiet" onClick={() => onSelectObservation(to.id)}>
-                        Open later observation ({to.sequence})
+                        Open later observation ({to.observation_index})
                     </button>
                 </div>
                 <Properties

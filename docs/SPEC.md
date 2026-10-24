@@ -2,55 +2,55 @@
 
 ## Local import
 
-The dashboard accepts a selected model directory, or a parent directory containing several models. A model contains `manifest.json`, `evidence.jsonl`, and its referenced artifacts. Users can add sources to an existing workspace and remove them individually.
+The dashboard accepts a selected evidence directory, or a parent directory containing several traces. A trace contains `manifest.json`, `evidence.jsonl`, and its referenced artifacts. Users can add sources to an existing workspace and remove them individually. Folder names can describe the application, objective, and recording time; import uses the manifest and event records. A completed action connects its before and resulting observations to form a state-action-state trace.
 
-Import validates data schema 2. The shared format is defined by the specs project; dashboard release numbers identify application releases separately.
+Import validates the current evidence schema. The shared format is defined by the specs project; dashboard release numbers identify application releases separately.
 
-An import worker reads UTF-8 JSONL incrementally, validates record shapes, replays events in order, and verifies referenced artifact hashes. A complete final line ends with a newline. Failures identify the affected file and relevant record line. File-access failures identify the affected manifest, evidence log, or artifact and explain how to retry. A file that exists on disk can still be unavailable to the browser, including at long Windows paths. Copying the complete model to a shorter local path preserves its contents and source fingerprint.
+An import worker reads UTF-8 JSONL incrementally, validates record shapes, replays events in order, and verifies referenced artifact hashes. A complete final line ends with a newline. Failures identify the affected file and relevant record line. File-access failures identify the affected manifest, evidence log, or artifact and explain how to retry. A file that exists on disk can still be unavailable to the browser, including at long Windows paths. Copying the complete trace to a shorter local path preserves its contents and source fingerprint.
 
 Import is atomic: a failed batch leaves the existing workspace intact. Canceling terminates the worker and discards that batch.
 
 ## Evidence and identities
 
-| Component            | Responsibility                                                                          |
-| -------------------- | --------------------------------------------------------------------------------------- |
-| `evidence/schema.ts` | Validate the manifest, event forms, evaluation targets, readings, and named properties. |
-| `Replay`             | Validate references and execution lifecycle, then build the concrete in-memory model.   |
-| `importDirectory`    | Discover models, stream events, verify files, and assign source fingerprints.           |
-| `import.worker.ts`   | Run import outside interface interaction and report progress.                           |
-| `Graph`              | Draw observations and completed execution links.                                        |
-| `Details`            | Inspect screenshots, properties, widgets, evaluations, and executions.                  |
-| `App`                | Manage source/run selection, import lifecycle, and the timeline.                        |
+| Component            | Responsibility                                                                                     |
+| -------------------- | -------------------------------------------------------------------------------------------------- |
+| `evidence/schema.ts` | Validate the manifest, event forms, oracle targets, observed values, and named properties.         |
+| `Replay`             | Validate references and execution lifecycle, then build the reconstructed evidence in memory.      |
+| `importDirectory`    | Discover traces, stream events, verify files, and assign source fingerprints.                      |
+| `import.worker.ts`   | Run import outside interface interaction and report progress.                                      |
+| `Graph`              | Draw observations and completed execution links.                                                   |
+| `Details`            | Inspect screenshots, properties, widgets, evaluations, and executions.                             |
+| `App`                | Manage evidence-source, test-run, and test-sequence selection, import lifecycle, and the timeline. |
 
 Each source fingerprint combines its manifest and the SHA-256 digest of the original JSONL bytes. Referenced artifacts are independently verified. Identical reimports share a source identity. Different evidence remains in separate sources even when record IDs collide.
 
-Replay checks run status, increasing observation sequences, candidate bindings, widget hierarchy, snapshot identity, submissions, forward execution links, and evaluation targets. An identical repeated event is idempotent; conflicting content is rejected. Finishing a run makes outstanding executions incomplete. Late check results remain valid.
+Replay validates test runs and their test sequences, increasing sequence and observation indexes, available actions, widget hierarchy, recorded-state identities, action execution results, recorded transitions, and oracle targets. Identical repeated Evidence Events are accepted once. Conflicting repeated identities are rejected. Finishing a test sequence marks its unfinished executions incomplete. A test run finishes after its sequences finish; late oracle results retain their reported targets and statuses.
 
-Properties and explicit null values are preserved. Large integer properties use exact integers internally and display their original numeric value. Observation sequence numbers and timestamps must fit JavaScript's safe integer range. Unsupported numeric precision is reported rather than silently accepted.
+Properties, supplied null values, and omitted optional values retain their meanings. Unsigned 64-bit indexes and timestamps, and large integer properties, are preserved exactly. The inspector displays the original numeric value.
 
 ## Inspection
 
-The timeline orders visits within the selected run. Selecting a visit updates the graph and inspector. Clicking an execution link opens its own inspector with the action, parameters, status, target widget, and source/result navigation. Selecting an observation returns to its observation inspector. Solid graph edges come from completed executions. Optional dashed links connect adjacent observations in the same run when no completed execution connects that pair. They show observation order only; they do not establish that an action happened. Clicking a dashed link opens an explanation and navigation to its endpoints. These links are derived for display and leave imported observations, executions, and source fingerprints intact. Graph windows do not create links across omitted visits. A run with repeated or visually identical visits retains each observation.
+The timeline orders observations by test sequence and then observation index within the selected test run. The test-sequence selector shows all sequences or one sequence. Selecting a visit updates the graph and inspector. Clicking an execution link opens its own inspector with the action, parameters, status, target widget, and source/result navigation. Selecting an observation returns to its observation inspector. Solid graph edges come from completed executions. Optional dashed links connect adjacent observations in the same test sequence when no completed execution connects that pair. They show observation order only; they do not establish that an action happened. Clicking a dashed link opens an explanation and navigation to its endpoints. These links are derived for display and leave imported observations, executions, and source fingerprints intact. Graph windows do not create links across omitted visits. A run with repeated or visually identical visits retains each observation.
 
 The graph renders up to 1,000 observations around the selected visit. The timeline provides previous/next navigation through the complete run and displays a surrounding window of visits.
 
-The inspector shows PNG/JPEG screenshots, capture scope, state properties, candidate actions, widgets with parent references, evaluations, and associated executions. Widget text and properties are searchable. Lists and long property previews are bounded; their full underlying records remain in memory.
+The inspector shows PNG/JPEG screenshots, capture scope, state properties, available actions, widgets with parent references, evaluations, and associated executions. Widget text and properties are searchable. Lists and long property previews are bounded; their full underlying records remain in memory.
 
-Evaluation inspection includes results targeting the selected observation, its run, an associated execution, or a sequence containing it. Original targets remain visible. Status explanations describe the recorded oracle outcome; pending results on finished runs explicitly identify that the run has ended. A broad evaluation does not establish that individual widget properties were evaluated.
+Evaluation inspection includes results targeting the selected observation, its test run, its test sequence, an associated execution, or an observation range containing it. Original targets remain visible. Status explanations describe the recorded oracle outcome; pending results on finished runs explicitly identify that the run has ended. A broad evaluation does not establish that individual widget properties were evaluated.
 
-Evaluation lists support passed, failed, pending, unknown, and error filters, with counts across the entire current list before pagination. Filtering changes the displayed results and preserves recorded coverage.
+Evaluation lists support passed, failed, pending, unknown, and error filters, with counts across the entire current list before pagination. Filtering changes the displayed results and preserves recorded coverage. Results show their oracle, oracle target, expected value, observed value, oracle details, and optional oracle severity. Severity preserves the source label and optional numeric value.
 
 The Coverage tab indexes direct observation, state-property, widget, and widget-property targets. Run, sequence, and execution targets retain their broader scope. Widget-level results do not mark all its properties evaluated. Every reported status counts as a recorded result, while passing and failing remain distinct outcomes. Coverage is specific to each observation. It groups names declared in `evidence.property_aliases` only when both keys are captured with equal JSON values. Equal values without a declaration remain separate properties. Each group sums its original-target evaluation records once; the source targets and properties remain unchanged.
 
-Coverage lists captured state properties, widgets, and run visits without direct results. The three shared capture metadata fields are shown as descriptions rather than application properties in coverage counts. A nested property object counts once; evaluating a nested-looking literal key does not evaluate its container. Invalid alias declarations remain visible but are ignored for grouping. Missing results mean no evaluation was recorded for that target; source instrumentation may be incomplete. Absent or uncaptured property targets remain visible in Evaluations, while captured-property lists describe the available snapshot. Filters, capture limits, and unavailable data constrain any coverage interpretation.
+Coverage lists captured state properties, widgets, and run visits without direct results. The three shared capture metadata fields are shown as descriptions rather than application properties in coverage counts. A nested property object counts once; evaluating a nested-looking literal key does not evaluate its container. Invalid alias declarations remain visible but are ignored for grouping. Missing results mean no evaluation was recorded for that target; source instrumentation may be incomplete. Absent or uncaptured property targets remain visible in Evaluations, while captured-property lists describe the recorded state. Filters, capture limits, and unavailable data constrain any coverage interpretation.
 
 Capture descriptions show the reported area, widget/property selection, limits, and truncation. Known property omissions are listed separately with their reasons. These omissions leave captured presence or values unknown and do not establish application-level absence.
 
-Evaluation lists also filter reports by supplied assessment phase: during run, end of run, or phase not reported. Shared `evidence.assessment` metadata supplies temporal meaning and termination reason. Existing Bombadil phase/reason properties also supply presentation context without inferring temporal semantics. Counts retain every original report, including repeated and late reports; filtering preserves their sequence targets and recorded statuses.
+Evaluation lists also filter reports by supplied assessment phase: during run, end of run, during sequence, end of sequence, or phase not reported. Shared `evidence.assessment` metadata supplies temporal meaning and termination reason. Counts retain every original report, including repeated and late reports; filtering preserves their sequence targets and recorded statuses.
 
 ## Matching across runs
 
-The **Matching preview** view compares selected runs from the imported sources. Its shared evidence index scopes identities by source and by the record's run or observation where applicable. Reused IDs in independent sources remain separate. The index counts selected observations, widgets, referenced action definitions, and executions.
+The **Matching preview** view compares selected runs from the imported sources. Its shared evidence index scopes identities by source and by the record's run or observation where applicable. Reused IDs in independent sources remain separate. The index counts selected observations, widgets, referenced action descriptions, and executions.
 
 Users choose a built-in preset or edit a JSON definition. Both paths use the same versioned interpreter. The definition selects state properties and optional widget properties, with ordered alternative names for each field. Comparison preserves exact JSON values, including large integers and explicit nulls. A missing optional property has its own representation. Missing required fields, unsuitable transform values, and observations without selected captured values produce unmatched explanations.
 
@@ -58,7 +58,7 @@ Supported string transforms trim, collapse whitespace, lowercase, replace litera
 
 Grouping uses exact equality of the resulting comparison representation. The default **Page address and title** preset requires `ui.url` and a string `ui.title`. It removes the address fragment and trims and collapses title whitespace while preserving case. Empty titles remain captured strings; missing or non-string titles produce unmatched explanations. Different normalized titles keep visits separate at the same address. **Page address** requires only the address. **Page and widget structure** compares address and title plus optional role, name/title, and tag descriptions as a sorted flat collection.
 
-Session parameters remain unless a rule explicitly removes them. The URL transform's `remove_path_parameters` lists exact, case-sensitive names and removes all matching semicolon parameters in every path segment. Names are percent-decoded once after splitting literal semicolons; malformed encodings remain unchanged. Values and unrelated parameters keep their encoding and order. Query parameters and fragments use their separate options. The full captured `ui.url` and `ui.title` remain unchanged in the source model.
+Session parameters remain unless a rule explicitly removes them. The URL transform's `remove_path_parameters` lists exact, case-sensitive names and removes all matching semicolon parameters in every path segment. Names are percent-decoded once after splitting literal semicolons; malformed encodings remain unchanged. Values and unrelated parameters keep their encoding and order. Query parameters and fragments use their separate options. The full captured `ui.url` and `ui.title` remain unchanged in the source evidence.
 
 The `capture: "same"` setting compares recorded capture statuses; equivalent statuses do not establish equivalent producer capture scopes. A policy that compares widgets leaves observations with unavailable widget captures unmatched.
 

@@ -55,7 +55,7 @@ export function MatchingPreview({ sources, active, onOpenObservation, onOpenExec
     const runs = useMemo(
         () =>
             sources.flatMap((source) =>
-                Array.from(source.model.runs.values(), (run) => ({
+                Array.from(source.evidence.runs.values(), (run) => ({
                     key: runKey(source.id, run.id),
                     label: source.label + " / " + run.producer + " / " + run.source_run,
                 })),

@@ -1,6 +1,6 @@
 import { assessmentContext } from "./evidence/assessment";
 import { formatJson } from "./evidence/common";
-import type { Check } from "./evidence/schema";
+import type { OracleResult } from "./evidence/schema";
 
 export function Properties({ values }: { values: Record<string, unknown> }) {
     return (
@@ -25,12 +25,12 @@ export function Evaluation({
     runFinished,
     runReason,
 }: {
-    data: Check;
+    data: OracleResult;
     runFinished: boolean;
     runReason?: string;
 }) {
     const assessment = assessmentContext(data);
-    const descriptions: Record<Check["status"], string> = {
+    const descriptions: Record<OracleResult["oracle_status"], string> = {
         passed: "The test oracle reported that the condition was satisfied.",
         failed: "The test oracle reported that the condition was not satisfied.",
         pending:
@@ -42,19 +42,15 @@ export function Evaluation({
         <article className="evaluation">
             <div className="evaluation-heading">
                 <strong>{data.name}</strong>
-                <span className={"badge " + data.status}>{data.status}</span>
+                <span className={"badge " + data.oracle_status}>{data.oracle_status}</span>
             </div>
             <p className="muted">
-                {descriptions[data.status]}
-                {data.status === "pending" && runFinished ? " The run has ended." : ""}
+                {descriptions[data.oracle_status]}
+                {data.oracle_status === "pending" && runFinished ? " The run has ended." : ""}
             </p>
             {assessment && (
                 <div className="assessment-context">
-                    <span className="badge recorded">
-                        {assessment.phase === "end_of_run"
-                            ? "End-of-run assessment"
-                            : "During-run assessment"}
-                    </span>
+                    <span className="badge recorded">{assessment.phase.replaceAll("_", " ")}</span>
                     {assessment.semantics && (
                         <p className="muted">
                             {assessment.semantics === "open_ended"
@@ -62,7 +58,7 @@ export function Evaluation({
                                 : "This condition concerns the reported observation interval."}
                         </p>
                     )}
-                    {assessment.phase === "end_of_run" &&
+                    {assessment.phase.startsWith("end_") &&
                         (assessment.terminationReason ?? runReason) && (
                             <p className="muted">
                                 Run ending: {assessment.terminationReason ?? runReason}
@@ -70,14 +66,21 @@ export function Evaluation({
                         )}
                 </div>
             )}
-            <p className="muted">Target: {data.target.kind.replaceAll("_", " ")}</p>
+            <p className="muted">Target: {data.oracle_target.target_type.replaceAll("_", " ")}</p>
             <Properties
                 values={{
-                    rule: data.rule,
-                    target: data.target,
-                    expected: Object.hasOwn(data, "expected") ? data.expected : "Not supplied",
-                    actual: Object.hasOwn(data, "actual") ? data.actual : "Not supplied",
-                    details: data.details,
+                    Oracle: data.oracle,
+                    "Oracle target": data.oracle_target,
+                    "Expected value": Object.hasOwn(data, "expected_value")
+                        ? data.expected_value
+                        : "Not supplied",
+                    "Observed value": Object.hasOwn(data, "observed_value")
+                        ? data.observed_value
+                        : "Not supplied",
+                    "Oracle details": data.oracle_details,
+                    ...(data.oracle_severity === undefined
+                        ? {}
+                        : { "Oracle severity": data.oracle_severity }),
                 }}
             />
         </article>

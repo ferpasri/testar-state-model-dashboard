@@ -10,39 +10,39 @@ import {
     type MatchingDefinition,
 } from "../src/analysis";
 import { canonical, parseJson } from "../src/evidence/common";
-import type { EvidenceModel } from "../src/evidence/model";
+import type { ReconstructedEvidence } from "../src/evidence/reconstructed-evidence";
 import type { Observation } from "../src/evidence/schema";
 
-type Widget = Observation["state"]["widgets"][number];
+type Widget = Observation["recorded_state"]["widgets"][number];
 type Visit = {
     id?: string;
     run?: string;
     properties?: Record<string, unknown>;
     widgets?: Widget[];
-    capture?: Observation["state"]["capture"];
+    capture?: Observation["recorded_state"]["capture"];
 };
 
 function source(id: string, visits: Visit[]): AnalysisSource {
     const observations = visits.map((visit, index): Observation => ({
         id: visit.id ?? "observation-" + index,
-        run: visit.run ?? "run",
-        sequence: index,
+        test_sequence: visit.run ?? "run",
+        observation_index: index,
         timestamp_micros: index,
-        state: {
+        recorded_state: {
             id: "snapshot-" + index,
             properties: visit.properties ?? {},
             widgets: visit.widgets ?? [],
             capture: visit.capture ?? "complete",
         },
-        candidates: [],
+        available_actions: [],
         artifacts: [],
-        candidate_scope: "unknown",
+        available_action_scope: "unknown",
     }));
-    const model: EvidenceModel = {
-        manifest: { schema_version: 2, model: "model" },
+    const evidence: ReconstructedEvidence = {
+        manifest: { schema_version: 3, evidence_id: "evidence" },
         eventCount: observations.length,
         runs: new Map(
-            [...new Set(observations.map((item) => item.run))].map((run) => [
+            [...new Set(observations.map((item) => item.test_sequence))].map((run) => [
                 run,
                 {
                     id: run,
@@ -55,14 +55,31 @@ function source(id: string, visits: Visit[]): AnalysisSource {
             ]),
         ),
         observations: new Map(observations.map((observation) => [observation.id, observation])),
+        sequences: new Map(
+            [...new Set(observations.map((item) => item.test_sequence))].map((id) => [
+                id,
+                {
+                    id,
+                    test_run: id,
+                    sequence_index: 1,
+                    source_sequence: id,
+                    properties: {},
+                    status: "finished",
+                    reason: "finished",
+                },
+            ]),
+        ),
         actions: new Map(),
         executions: new Map(),
-        checks: [],
-        snapshots: new Map(
-            observations.map((observation) => [observation.state.id, observation.state]),
+        oracleResults: [],
+        recordedStates: new Map(
+            observations.map((observation) => [
+                observation.recorded_state.id,
+                observation.recorded_state,
+            ]),
         ),
     };
-    return { id, label: id, fingerprint: "fingerprint-" + id, model };
+    return { id, label: id, fingerprint: "fingerprint-" + id, evidence };
 }
 
 function widget(
@@ -75,7 +92,7 @@ function widget(
 
 function runs(sources: AnalysisSource[]): string[] {
     return sources.flatMap((item) =>
-        [...item.model.runs.keys()].map((run) => runKey(item.id, run)),
+        [...item.evidence.runs.keys()].map((run) => runKey(item.id, run)),
     );
 }
 
@@ -115,22 +132,26 @@ describe("shared evidence index", () => {
             ]),
         );
         for (const item of sources) {
-            item.model.actions.set("action", { id: "action", kind: "click", properties: {} });
-            item.model.observations
+            item.evidence.actions.set("action", {
+                id: "action",
+                action_type: "click",
+                properties: {},
+            });
+            item.evidence.observations
                 .get("same")!
-                .candidates.push({ action: "action", target: "same" });
-            item.model.executions.set("execution", {
+                .available_actions.push({ action_description: "action", target_widget: "same" });
+            item.evidence.executions.set("execution", {
                 execution: {
                     id: "execution",
-                    run: "run",
-                    source: "same",
-                    action: "action",
-                    target: "same",
+                    test_sequence: "run",
+                    source_observation: "same",
+                    action_description: "action",
+                    target_widget: "same",
                     parameters: {},
                 },
                 status: "incomplete",
-                result: null,
-                error: null,
+                resultingObservation: null,
+                executionResult: null,
             });
         }
         const index = buildEvidenceIndex(sources, runs(sources));
@@ -150,12 +171,16 @@ describe("shared evidence index", () => {
 
     it("restricts comparison to the explicitly selected source/run scope", async () => {
         const item = source("source", [
-            { run: "selected", properties: { "ui.url": "/login" } },
+            { run: "awaiting_execution_result", properties: { "ui.url": "/login" } },
             { run: "other", properties: { "ui.url": "/login" } },
         ]);
-        const result = await previewMatching([item], policy(), [runKey(item.id, "selected")]);
+        const result = await previewMatching([item], policy(), [
+            runKey(item.id, "awaiting_execution_result"),
+        ]);
         expect(result.index.observations).toBe(1);
-        expect(result.inputScope.runs).toEqual([{ source: "source", run: "selected" }]);
+        expect(result.inputScope.runs).toEqual([
+            { source: "source", run: "awaiting_execution_result" },
+        ]);
         expect(result.inputScope.sources[0].fingerprint).toBe(item.fingerprint);
         expect(result.counts.sharedGroups).toBe(0);
     });
@@ -631,11 +656,11 @@ describe("widget comparisons and original evidence", () => {
                 },
             ]),
         );
-        const before = sources.map((item) => canonical([...item.model.observations]));
+        const before = sources.map((item) => canonical([...item.evidence.observations]));
         const first = await preview(sources, DEFAULT_PRESETS[0].definition);
         const second = await preview([...sources].reverse(), DEFAULT_PRESETS[0].definition);
         expect(first).toEqual(second);
-        expect(sources.map((item) => canonical([...item.model.observations]))).toEqual(before);
+        expect(sources.map((item) => canonical([...item.evidence.observations]))).toEqual(before);
         expect(first.policyFingerprint).toMatch(/^[a-f0-9]{64}$/u);
         expect(first.definition).toEqual(DEFAULT_PRESETS[0].definition);
         expect(first.interpreterVersion).toBe("1.1.0");

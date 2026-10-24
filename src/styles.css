@@ -495,7 +495,7 @@ h3 {
 }
 .badge.failed,
 .badge.error,
-.badge.rejected {
+.badge.failed {
     background: #f8e5de;
     color: #974f3b;
     border-color: #eac3b5;
@@ -511,7 +511,7 @@ h3 {
     color: #45627d;
 }
 .badge.passed,
-.badge.observed {
+.badge.completed {
     background: #e3efe4;
     color: #3f7150;
 }

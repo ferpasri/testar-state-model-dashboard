@@ -7,7 +7,10 @@ import {
     type MatchingDefinition,
 } from "../src/analysis";
 import { canonical } from "../src/evidence/common";
-import type { EvidenceModel, RecordedExecution } from "../src/evidence/model";
+import type {
+    ReconstructedEvidence,
+    RecordedExecution,
+} from "../src/evidence/reconstructed-evidence";
 import type { Observation } from "../src/evidence/schema";
 
 const definition: MatchingDefinition = {
@@ -20,44 +23,63 @@ const definition: MatchingDefinition = {
 function source(id: string, pages: Array<string | null>, runIds: string[] = []): AnalysisSource {
     const observations = pages.map((page, index): Observation => ({
         id: "observation-" + index,
-        run: runIds[index] ?? "run",
-        sequence: index,
+        test_sequence: runIds[index] ?? "run",
+        observation_index: index,
         timestamp_micros: index,
-        state: {
+        recorded_state: {
             id: "snapshot-" + index,
             properties: page === null ? {} : { "ui.url": page },
             widgets: [],
             capture: "complete",
         },
-        candidates: [],
+        available_actions: [],
         artifacts: [],
-        candidate_scope: "unknown",
+        available_action_scope: "unknown",
     }));
-    const model: EvidenceModel = {
-        manifest: { schema_version: 2, model: "model" },
+    const evidence: ReconstructedEvidence = {
+        manifest: { schema_version: 3, evidence_id: "evidence" },
         eventCount: observations.length,
         runs: new Map(
-            [...new Set(observations.map((observation) => observation.run))].map((run) => [
-                run,
+            [...new Set(observations.map((observation) => observation.test_sequence))].map(
+                (run) => [
+                    run,
+                    {
+                        id: run,
+                        producer: "generic",
+                        source_run: run,
+                        properties: {},
+                        status: "finished",
+                        reason: "finished",
+                    },
+                ],
+            ),
+        ),
+        observations: new Map(observations.map((observation) => [observation.id, observation])),
+        sequences: new Map(
+            [...new Set(observations.map((item) => item.test_sequence))].map((id) => [
+                id,
                 {
-                    id: run,
-                    producer: "generic",
-                    source_run: run,
+                    id,
+                    test_run: id,
+                    sequence_index: 1,
+                    source_sequence: id,
                     properties: {},
                     status: "finished",
                     reason: "finished",
                 },
             ]),
         ),
-        observations: new Map(observations.map((observation) => [observation.id, observation])),
         actions: new Map(),
         executions: new Map(),
-        checks: [],
-        snapshots: new Map(
-            observations.map((observation) => [observation.state.id, observation.state]),
+        oracleResults: [],
+        recordedStates: new Map(
+            observations.map((observation) => [
+                observation.recorded_state.id,
+                observation.recorded_state,
+            ]),
         ),
     };
-    return { id, label: id, fingerprint: "fingerprint-" + id, model };
+    return { id, label: id, fingerprint: "fingerprint-" + id, evidence };
 }
 
 function addExecution(
@@ -66,30 +88,33 @@ function addExecution(
     from: number,
     to: number | null,
     kind = "click",
-    status: RecordedExecution["status"] = "observed",
+    status: RecordedExecution["status"] = "completed",
 ): void {
-    const origin = item.model.observations.get("observation-" + from)!;
+    const origin = item.evidence.observations.get("observation-" + from)!;
     const action = "action-" + id;
-    item.model.actions.set(action, { id: action, kind, properties: { label: id } });
-    origin.candidates.push({ action, target: null });
-    item.model.executions.set(id, {
+    item.evidence.actions.set(action, { id: action, action_type: kind, properties: { label: id } });
+    origin.available_actions.push({ action_description: action, target_widget: null });
+    item.evidence.executions.set(id, {
         execution: {
             id,
-            run: origin.run,
-            source: origin.id,
-            action,
-            target: null,
+            test_sequence: origin.test_sequence,
+            source_observation: origin.id,
+            action_description: action,
+            target_widget: null,
             parameters: { originalParameter: id },
         },
         status,
-        result: to === null ? null : "observation-" + to,
-        error: status === "rejected" ? "Rejected by tool" : null,
+        resultingObservation: to === null ? null : "observation-" + to,
+        executionResult:
+            status === "failed"
+                ? { action_execution: id, outcome: "error", error: "Reported execution error" }
+                : null,
     });
 }
 
 function selectedRuns(sources: AnalysisSource[]): string[] {
     return sources.flatMap((item) =>
-        [...item.model.runs.keys()].map((run) => runKey(item.id, run)),
+        [...item.evidence.runs.keys()].map((run) => runKey(item.id, run)),
     );
 }
 
@@ -101,9 +126,9 @@ async function derived(sources: AnalysisSource[]) {
 function originalEvidence(sources: AnalysisSource[]): string {
     return canonical(
         sources.map((item) => ({
-            observations: [...item.model.observations],
-            actions: [...item.model.actions],
-            executions: [...item.model.executions],
+            observations: [...item.evidence.observations],
+            actions: [...item.evidence.actions],
+            executions: [...item.evidence.executions],
         })),
     );
 }
@@ -147,14 +172,14 @@ describe("derived nodes and original observation scope", () => {
         const first = source(
             "first",
             ["/a", "/b", "/c", "/d"],
-            ["selected", "selected", "other", "other"],
+            ["awaiting_execution_result", "awaiting_execution_result", "other", "other"],
         );
         addExecution(first, "selected-execution", 0, 1);
         addExecution(first, "other-execution", 2, 3);
         const excluded = source("excluded", ["/a", "/b"]);
         addExecution(excluded, "excluded-execution", 0, 1);
         const preview = await previewMatching([first, excluded], definition, [
-            runKey(first.id, "selected"),
+            runKey(first.id, "awaiting_execution_result"),
         ]);
         const model = buildDerivedModel(preview, [first, excluded]);
         expect(model.counts.observations).toBe(2);
@@ -162,7 +187,11 @@ describe("derived nodes and original observation scope", () => {
         expect(
             model.nodes
                 .flatMap((node) => node.members)
-                .every((reference) => reference.source === "first" && reference.run === "selected"),
+                .every(
+                    (reference) =>
+                        reference.source === "first" &&
+                        reference.run === "awaiting_execution_result",
+                ),
         ).toBe(true);
         expect(
             model.edges.flatMap((edge) => edge.executions).map((reference) => reference.execution),
@@ -212,9 +241,9 @@ describe("derived execution edges", () => {
         for (const reference of edge.executions) {
             const original = sources
                 .find((item) => item.id === reference.source)!
-                .model.executions.get(reference.execution)!;
+                .evidence.executions.get(reference.execution)!;
             expect(original.execution.parameters).toEqual({ originalParameter: "execution" });
-            expect(original.execution.action).toBe("action-execution");
+            expect(original.execution.action_description).toBe("action-execution");
         }
     });
 
@@ -249,7 +278,12 @@ describe("derived execution edges", () => {
 
     it("retains selected, submitted, rejected, and incomplete executions without inventing edges", async () => {
         const item = source("source", ["/a", "/b", "/c", "/d", "/e"]);
-        const statuses = ["selected", "submitted", "rejected", "incomplete"] as const;
+        const statuses = [
+            "awaiting_execution_result",
+            "awaiting_resulting_observation",
+            "failed",
+            "incomplete",
+        ] as const;
         statuses.forEach((status, index) =>
             addExecution(item, status, index, null, "click", status),
         );
@@ -293,13 +327,13 @@ describe("derived execution edges", () => {
         expect(model.counts.orderLinks).toBe(0);
     });
 
-    it("retains an execution when its original action definition is unavailable", async () => {
+    it("retains an execution when its original action description is unavailable", async () => {
         const item = source("source", ["/a", "/b"]);
         addExecution(item, "execution", 0, 1);
-        item.model.actions.clear();
+        item.evidence.actions.clear();
         const { model } = await derived([item]);
         expect(model.counts.executionEdges).toBe(0);
-        expect(model.unlinkedExecutions[0].reason).toContain("action definition");
+        expect(model.unlinkedExecutions[0].reason).toContain("action description");
     });
 });
 

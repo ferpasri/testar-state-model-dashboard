@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import cytoscape from "cytoscape";
-import type { EvidenceModel } from "./evidence/model";
+import type { ReconstructedEvidence } from "./evidence/reconstructed-evidence";
 import type { Observation } from "./evidence/schema";
 import { displayValue } from "./evidence/common";
 import type { ObservationGap } from "./evidence/trace";
 
 export function Graph({
-    model,
+    evidence,
     observations,
     selected,
     onSelect,
@@ -16,7 +16,7 @@ export function Graph({
     selectedGap,
     onSelectGap,
 }: {
-    model: EvidenceModel;
+    evidence: ReconstructedEvidence;
     observations: Observation[];
     selected: string;
     onSelect: (id: string) => void;
@@ -43,25 +43,30 @@ export function Graph({
                 id: "n" + index,
                 observation: item.id,
                 label:
-                    item.sequence +
+                    item.observation_index +
                     " · " +
-                    displayValue(item.state.properties["ui.title"] ?? "Observation").slice(0, 55),
+                    displayValue(item.recorded_state.properties["ui.title"] ?? "Observation").slice(
+                        0,
+                        55,
+                    ),
             },
         }));
-        for (const [index, item] of Array.from(model.executions.values()).entries()) {
+        for (const [index, item] of Array.from(evidence.executions.values()).entries()) {
             if (
-                item.result &&
-                identities.has(item.execution.source) &&
-                identities.has(item.result)
+                item.resultingObservation &&
+                identities.has(item.execution.source_observation) &&
+                identities.has(item.resultingObservation)
             ) {
                 elements.push({
                     data: {
                         id: "e" + index,
                         execution: item.execution.id,
-                        source: identities.get(item.execution.source),
-                        target: identities.get(item.result),
+                        source: identities.get(item.execution.source_observation),
+                        target: identities.get(item.resultingObservation),
                         label:
-                            model.actions.get(item.execution.action)?.kind.slice(0, 35) ?? "action",
+                            evidence.actions
+                                .get(item.execution.action_description)
+                                ?.action_type.slice(0, 35) ?? "action",
                     },
                 });
             }
@@ -171,7 +176,7 @@ export function Graph({
             graph.current = null;
         };
     }, [
-        model,
+        evidence,
         observations,
         onSelect,
         onSelectExecution,

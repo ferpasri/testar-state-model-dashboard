@@ -2,7 +2,7 @@
 
 A web application for exploring test evidence from tools that follow [testar-evidence-specs](https://github.com/ferpasri/testar-evidence-specs).
 
-Select a local model folder to inspect its runs, ordered observations, action executions, screenshots, widgets, properties, and test-oracle results. Multiple sources can share one workspace while retaining their own identities and execution history.
+Select a local evidence folder to inspect its test runs, test sequences, ordered observations, action executions, screenshots, widgets, properties, and test-oracle results. Multiple sources can share one workspace while retaining their own identities and execution history. A recorded action connects its before and resulting observations, forming a state-action-state execution trace. Trace folder names help people recognize recordings; the dashboard uses manifest and event identities to load evidence and the selected matching rules to derive models.
 
 Evidence is validated and processed in a browser worker. The server delivers the application files; selected evidence stays on the user's computer. The workspace lives in memory until the page reloads. The same production build supports hosted and self-hosted deployments.
 
@@ -15,11 +15,11 @@ npm ci
 npm run dev
 ```
 
-Open the local URL printed by Vite. Choose **Open model folder** and select a directory containing `manifest.json`, `evidence.jsonl`, and its referenced artifacts. You can also select a parent directory containing several models, then add further sources to the workspace.
+Open the local URL printed by Vite. Choose **Open evidence folder** and select a directory containing `manifest.json`, `evidence.jsonl`, and its referenced artifacts. You can also select a parent directory containing several traces, then add further sources to the workspace.
 
-Select a run in the sidebar. Follow visits using the timeline or graph, and use the inspector tabs to examine captured properties, widgets, evaluations, and executions.
+Select a test run in the sidebar, then choose all test sequences or one sequence. Follow visits using the timeline or graph, and use the inspector tabs to examine captured properties, widgets, evaluations, and executions.
 
-In **Evaluations**, click a status to filter results. When assessment phases are reported, filter **During run** or **End of run** to inspect them separately. Pending results keep their reported status even after a run ends.
+In **Evaluations**, click a status to filter results. When assessment phases are reported, filter during-run, end-of-run, during-sequence, or end-of-sequence reports to inspect them separately. Pending results keep their reported status even after a run ends.
 
 **Coverage** groups explicitly declared names for the same captured property when their values agree. Grouped rows show their recorded aliases. Capture descriptions explain the producer's widget and property selection, limits, and truncation; known omissions are listed separately from captured properties.
 
@@ -31,7 +31,7 @@ Switch to **Derived model** to see a combined graph. Click a state or arrow to i
 
 **Download model** saves the graph, its original-record references, and the matching policy and input fingerprints. **Download rules** saves the reusable JSON definition. **Download preview** saves the definition, input fingerprints, comparison explanations, and original-record references. These files can contain captured values; save and share them with the same care as the source evidence. The preview describes the selected policy's matches. Evaluations continue to apply to their original targets.
 
-If the browser cannot read a selected file, finish recording and select the folder again. On Windows, deeply nested folders can make screenshot paths too long for browser access. Copy the complete model folder, including its artifacts, to a shorter local path and select that copy. Keep internal filenames and relative paths unchanged.
+If the browser cannot read a selected file, finish recording and select the folder again. On Windows, deeply nested folders can make screenshot paths too long for browser access. Copy the complete evidence folder, including its artifacts, to a shorter local path and select that copy. Keep internal filenames and relative paths unchanged.
 
 Create and preview a production build:
 

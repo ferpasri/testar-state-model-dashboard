@@ -3,11 +3,11 @@ import type { Core } from "cytoscape";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import type { DerivedModel } from "../../src/analysis";
-import type { Envelope } from "../../src/evidence/schema";
+import type { EvidenceEvent } from "../../src/evidence/schema";
 import { sharedCases } from "../support";
 
 const broader = sharedCases().find(
-    (directory) => path.basename(directory) === "broader-check-targets",
+    (directory) => path.basename(directory) === "broader-oracle-targets",
 )!;
 
 type GraphContainer = HTMLElement & { _cyreg: { cy: Core } };
@@ -25,26 +25,38 @@ function sourceVariant(
         path.join(directory, "manifest.json"),
         readFileSync(path.join(broader, "manifest.json")),
     );
-    const original: Envelope[] = readFileSync(path.join(broader, "evidence.jsonl"), "utf8")
+    const original: EvidenceEvent[] = readFileSync(path.join(broader, "evidence.jsonl"), "utf8")
         .trimEnd()
         .split("\n")
         .map((line) => JSON.parse(line));
     const run = structuredClone(
-        original.flatMap(({ event }) => (event.kind === "run_started" ? [event.data] : []))[0],
+        original.flatMap(({ event }) =>
+            event.event_type === "test_run_started" ? [event.data] : [],
+        )[0],
     );
     const action = original.flatMap(({ event }) =>
-        event.kind === "action_defined" ? [event.data] : [],
+        event.event_type === "action_described" ? [event.data] : [],
     )[0];
     const template = original.flatMap(({ event }) =>
-        event.kind === "observed" ? [event.data] : [],
+        event.event_type === "observation_recorded" ? [event.data] : [],
     )[0];
     run.producer = name;
-    const entries: Envelope[] = [];
-    function add(event: Envelope["event"]): void {
-        entries.push({ schema_version: 2, id: "browser:event:" + (entries.length + 1), event });
+    const entries: EvidenceEvent[] = [];
+    function add(event: EvidenceEvent["event"]): void {
+        entries.push({ schema_version: 3, id: "browser:event:" + (entries.length + 1), event });
     }
-    add({ kind: "run_started", data: run });
-    add({ kind: "action_defined", data: action });
+    add({ event_type: "test_run_started", data: run });
+    add({
+        event_type: "test_sequence_started",
+        data: {
+            id: template.test_sequence,
+            test_run: run.id,
+            sequence_index: 1,
+            source_sequence: "1",
+            properties: {},
+        },
+    });
+    add({ event_type: "action_described", data: action });
     const pages: Array<string | null> = pagesOverride
         ? [...pagesOverride]
         : ["a", branch, "d", "d"];
@@ -55,38 +67,48 @@ function sourceVariant(
         const sequence = index + 1;
         const observation = structuredClone(template);
         observation.id = "browser:observation:" + sequence;
-        observation.sequence = sequence;
+        observation.observation_index = sequence;
         observation.timestamp_micros = sequence * 1000;
-        observation.state.id = "browser:snapshot:" + sequence;
-        observation.state.properties["ui.title"] = "Visit " + sequence;
+        observation.recorded_state.id = "browser:snapshot:" + sequence;
+        observation.recorded_state.properties["ui.title"] = "Visit " + sequence;
         if (page !== null) {
-            observation.state.properties["ui.url"] = "https://sut.example/page/" + page;
+            observation.recorded_state.properties["ui.url"] = "https://sut.example/page/" + page;
         }
         observation.artifacts = [];
         const execution = "browser:execution:" + index;
         if (index > 0 && page !== null) {
             add({
-                kind: "action_selected",
+                event_type: "action_selected",
                 data: {
                     id: execution,
-                    run: run.id,
-                    source: "browser:observation:" + index,
-                    action: action.id,
-                    target: "next",
+                    test_sequence: template.test_sequence,
+                    source_observation: "browser:observation:" + index,
+                    action_description: action.id,
+                    target_widget: "next",
                     parameters: {},
                 },
             });
             add({
-                kind: "action_submitted",
-                data: { execution, accepted: true, error: null },
+                event_type: "action_execution_reported",
+                data: { action_execution: execution, outcome: "returned", error: null },
             });
         }
-        add({ kind: "observed", data: observation });
+        add({ event_type: "observation_recorded", data: observation });
         if (index > 0 && page !== null) {
-            add({ kind: "action_result", data: { execution, observation: observation.id } });
+            add({
+                event_type: "transition_recorded",
+                data: { action_execution: execution, resulting_observation: observation.id },
+            });
         }
     }
-    add({ kind: "run_finished", data: { run: run.id, reason: "sequence complete" } });
+    add({
+        event_type: "test_sequence_finished",
+        data: { test_sequence: template.test_sequence, reason: "sequence complete" },
+    });
+    add({
+        event_type: "test_run_finished",
+        data: { test_run: run.id, reason: "sequence complete" },
+    });
     writeFileSync(
         path.join(directory, "evidence.jsonl"),
         entries.map((entry) => JSON.stringify(entry)).join("\n") + "\n",
@@ -97,7 +119,7 @@ function sourceVariant(
 async function openModelDirectories(page: Page, directories: string[]): Promise<void> {
     await page.goto("/");
     for (const [index, directory] of directories.entries()) {
-        await page.getByLabel("Model directory").setInputFiles(directory);
+        await page.getByLabel("Evidence directory").setInputFiles(directory);
         await expect(page.locator(".source")).toHaveCount(index + 1);
     }
     await page.getByRole("button", { name: "Matching preview", exact: true }).click();
@@ -250,7 +272,7 @@ test("changes graph layouts while label and highlight controls preserve node pos
     expect(errors).toEqual([]);
 });
 
-test("shows only selected evidence with accurate support while keeping the downloaded model unchanged", async ({
+test("shows only selected evidence with accurate support while keeping the downloaded evidence unchanged", async ({
     page,
 }, info) => {
     await openModel(page, info);

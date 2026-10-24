@@ -12,25 +12,35 @@ function valueText(value: unknown): string {
         (typeof value === "string" ? value : formatJson(value))?.slice(0, 12_000) ?? "Not supplied"
     );
 }
-export function checksForObservation(source: ImportedSource, observation: Observation) {
-    return source.model.checks.filter(({ data }) => {
-        if (data.run !== observation.run) {
+export function oracleResultsForObservation(source: ImportedSource, observation: Observation) {
+    const run = source.evidence.sequences.get(observation.test_sequence)!.test_run;
+    return source.evidence.oracleResults.filter(({ data }) => {
+        if (data.test_run !== run) {
             return false;
         }
-        const target = data.target;
-        switch (target.kind) {
-            case "run":
+        const target = data.oracle_target;
+        if (target.target_type === "test_run") {
+            return true;
+        }
+        if (data.test_sequence !== observation.test_sequence) {
+            return false;
+        }
+        switch (target.target_type) {
+            case "test_sequence":
                 return true;
-            case "sequence": {
-                const from = source.model.observations.get(target.from_observation)!;
-                const to = source.model.observations.get(target.to_observation)!;
-                return observation.sequence >= from.sequence && observation.sequence <= to.sequence;
-            }
-            case "execution": {
-                const execution = source.model.executions.get(target.execution)!;
+            case "observation_range": {
+                const first = source.evidence.observations.get(target.first_observation)!;
+                const last = source.evidence.observations.get(target.last_observation)!;
                 return (
-                    execution.execution.source === observation.id ||
-                    execution.result === observation.id
+                    observation.observation_index >= first.observation_index &&
+                    observation.observation_index <= last.observation_index
+                );
+            }
+            case "action_execution": {
+                const record = source.evidence.executions.get(target.action_execution)!;
+                return (
+                    record.execution.source_observation === observation.id ||
+                    record.resultingObservation === observation.id
                 );
             }
             default:
@@ -45,7 +55,7 @@ export function Screenshot({
 }: {
     source: ImportedSource;
     artifact: Artifact;
-    sequence: number;
+    sequence: number | bigint;
 }) {
     const [url, setUrl] = useState("");
     const [failed, setFailed] = useState(false);
@@ -91,18 +101,23 @@ export function Details({
         setWidgetLimit(100);
         setSearch("");
     }, [observation.id, source.id]);
-    const checks = useMemo(() => checksForObservation(source, observation), [source, observation]);
+    const oracleResults = useMemo(
+        () => oracleResultsForObservation(source, observation),
+        [source, observation],
+    );
     const widgets = useMemo(
         () =>
-            observation.state.widgets.filter((widget) =>
+            observation.recorded_state.widgets.filter((widget) =>
                 (widget.id + " " + canonical(widget.properties))
                     .toLocaleLowerCase()
                     .includes(search.toLocaleLowerCase()),
             ),
         [observation, search],
     );
-    const executions = Array.from(source.model.executions.values()).filter(
-        (item) => item.execution.source === observation.id || item.result === observation.id,
+    const executions = Array.from(source.evidence.executions.values()).filter(
+        (item) =>
+            item.execution.source_observation === observation.id ||
+            item.resultingObservation === observation.id,
     );
     const images = observation.artifacts.filter((artifact) =>
         ["image/png", "image/jpeg"].includes(artifact.media_type),
@@ -111,8 +126,12 @@ export function Details({
         <aside className="details">
             <div className="detail-title">
                 <span className="eyebrow">EVIDENCE INSPECTOR</span>
-                <h2>Observation {observation.sequence}</h2>
-                <p>{displayValue(observation.state.properties["ui.title"] ?? "Captured visit")}</p>
+                <h2>Observation {observation.observation_index}</h2>
+                <p>
+                    {displayValue(
+                        observation.recorded_state.properties["ui.title"] ?? "Captured visit",
+                    )}
+                </p>
             </div>
             <nav className="tabs" aria-label="Evidence details">
                 {["Observation", "Widgets", "Evaluations", "Coverage", "Executions"].map((name) => (
@@ -125,18 +144,22 @@ export function Details({
                 {tab === "Observation" && (
                     <>
                         <div className="badge-row">
-                            <span className="badge">{observation.state.capture} capture</span>
-                            <span className="badge">{observation.candidate_scope} candidates</span>
+                            <span className="badge">
+                                {observation.recorded_state.capture} capture
+                            </span>
+                            <span className="badge">
+                                {observation.available_action_scope} available_actions
+                            </span>
                         </div>
-                        {observation.state.capture === "unavailable" && (
+                        {observation.recorded_state.capture === "unavailable" && (
                             <p className="notice">
                                 Widget information was unavailable at capture time.
                             </p>
                         )}
-                        {observation.state.capture === "filtered" && (
+                        {observation.recorded_state.capture === "filtered" && (
                             <p className="notice">
-                                This snapshot contains selected information. Producer properties may
-                                describe capture limits.
+                                This recorded state contains selected information. Producer
+                                properties may describe capture limits.
                             </p>
                         )}
                         {images.length === 0 && (
@@ -149,22 +172,24 @@ export function Details({
                                 key={artifact.id}
                                 source={source}
                                 artifact={artifact}
-                                sequence={observation.sequence}
+                                sequence={observation.observation_index}
                             />
                         ))}
-                        <CaptureDescription properties={observation.state.properties} />
-                        <PropertyCaptureInformation properties={observation.state.properties} />
+                        <CaptureDescription properties={observation.recorded_state.properties} />
+                        <PropertyCaptureInformation
+                            properties={observation.recorded_state.properties}
+                        />
                         <h3>Captured properties</h3>
                         <Properties
                             values={Object.fromEntries(
-                                Object.entries(observation.state.properties).filter(([key]) =>
-                                    key.startsWith("ui."),
+                                Object.entries(observation.recorded_state.properties).filter(
+                                    ([key]) => key.startsWith("ui."),
                                 ),
                             )}
                         />
                         <details
                             open={
-                                !Object.keys(observation.state.properties).some((key) =>
+                                !Object.keys(observation.recorded_state.properties).some((key) =>
                                     key.startsWith("ui."),
                                 )
                             }
@@ -172,7 +197,7 @@ export function Details({
                             <summary>Additional producer properties</summary>
                             <Properties
                                 values={Object.fromEntries(
-                                    Object.entries(observation.state.properties).filter(
+                                    Object.entries(observation.recorded_state.properties).filter(
                                         ([key]) => !key.startsWith("ui."),
                                     ),
                                 )}
@@ -183,15 +208,18 @@ export function Details({
                             <Properties
                                 values={{
                                     id: observation.id,
-                                    snapshot: observation.state.id,
+                                    recorded_state: observation.recorded_state.id,
+                                    test_sequence: observation.test_sequence,
                                     timestamp_micros: observation.timestamp_micros,
                                     artifacts: observation.artifacts,
                                 }}
                             />
                         </details>
                         <details>
-                            <summary>Candidate actions ({observation.candidates.length})</summary>
-                            <pre>{valueText(observation.candidates)}</pre>
+                            <summary>
+                                Available actions ({observation.available_actions.length})
+                            </summary>
+                            <pre>{valueText(observation.available_actions)}</pre>
                         </details>
                     </>
                 )}
@@ -241,12 +269,13 @@ export function Details({
                 {tab === "Evaluations" && (
                     <>
                         <p className="muted">
-                            {checks.length} results target this visit, its run, associated
-                            executions, or a sequence containing it. These are test-oracle results,
-                            separate from action executions. Pending means the oracle had not
-                            reached a definite outcome when recorded.
+                            {oracleResults.length} results target this observation, its test run or
+                            test sequence, associated executions, or an observation range containing
+                            it. These are test-oracle results, separate from action executions.
+                            Pending means the oracle had not reached a definite outcome when
+                            recorded.
                         </p>
-                        <EvaluationList checks={checks} model={source.model} />
+                        <EvaluationList oracleResults={oracleResults} evidence={source.evidence} />
                     </>
                 )}
                 {tab === "Coverage" && (
@@ -269,17 +298,21 @@ export function Details({
                                 </button>
                                 <div className="evaluation-heading">
                                     <strong>
-                                        {source.model.actions.get(item.execution.action)?.kind}
+                                        {
+                                            source.evidence.actions.get(
+                                                item.execution.action_description,
+                                            )?.action_type
+                                        }
                                     </strong>
                                     <span className={"badge " + item.status}>{item.status}</span>
                                 </div>
                                 <Properties
                                     values={{
-                                        source: item.execution.source,
-                                        result: item.result,
-                                        target_widget: item.execution.target,
+                                        source_observation: item.execution.source_observation,
+                                        resulting_observation: item.resultingObservation,
+                                        target_widget: item.execution.target_widget,
                                         parameters: item.execution.parameters,
-                                        error: item.error,
+                                        error: item.executionResult?.error,
                                     }}
                                 />
                             </article>

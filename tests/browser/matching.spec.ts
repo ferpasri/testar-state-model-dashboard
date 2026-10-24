@@ -2,7 +2,7 @@ import { expect, test, type Page, type TestInfo } from "@playwright/test";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import type { MatchingDefinition, MatchingPreview } from "../../src/analysis";
-import type { Envelope } from "../../src/evidence/schema";
+import type { EvidenceEvent } from "../../src/evidence/schema";
 import { sharedCases } from "../support";
 
 const initial = sharedCases().find(
@@ -21,17 +21,17 @@ function sourceVariant(
         path.join(directory, "manifest.json"),
         readFileSync(path.join(initial, "manifest.json")),
     );
-    const entries: Envelope[] = readFileSync(path.join(initial, "evidence.jsonl"), "utf8")
+    const entries: EvidenceEvent[] = readFileSync(path.join(initial, "evidence.jsonl"), "utf8")
         .trimEnd()
         .split("\n")
         .map((line) => JSON.parse(line));
     for (const { event } of entries) {
-        if (event.kind === "run_started") {
+        if (event.event_type === "test_run_started") {
             event.data.producer = name;
         }
-        if (event.kind === "observed") {
-            event.data.state.properties["ui.url"] = url;
-            event.data.state.properties["ui.title"] = title;
+        if (event.event_type === "observation_recorded") {
+            event.data.recorded_state.properties["ui.url"] = url;
+            event.data.recorded_state.properties["ui.title"] = title;
             event.data.artifacts = [];
         }
     }
@@ -50,7 +50,7 @@ async function importSources(
 ): Promise<void> {
     await page.goto("/");
     for (const [index, directory] of directories.entries()) {
-        await page.getByLabel("Model directory").setInputFiles(directory);
+        await page.getByLabel("Evidence directory").setInputFiles(directory);
         await expect(page.locator(".source")).toHaveCount(index + 1);
     }
     await page.getByRole("button", { name: "Matching preview", exact: true }).click();
