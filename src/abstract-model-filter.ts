@@ -1,12 +1,15 @@
-import { runKey, type DerivedModel, type EvidenceReference } from "./analysis";
-import { edgeLabel } from "./analysis/derivedLabels";
+import { runKey, type AbstractModel, type EvidenceReference } from "./analysis";
+import { edgeLabel } from "./analysis/abstractModelLabels";
 
-export interface DerivedScope {
+export interface AbstractModelScope {
     source: string;
     run: string;
 }
 
-export function filterDerivedModel(model: DerivedModel, scope: DerivedScope): DerivedModel {
+export function filterAbstractModel(
+    model: AbstractModel,
+    scope: AbstractModelScope,
+): AbstractModel {
     const selected = (reference: Pick<EvidenceReference, "source" | "run">) =>
         (scope.source === "all" || reference.source === scope.source) &&
         (scope.run === "all" || runKey(reference.source, reference.run) === scope.run);
@@ -38,7 +41,7 @@ export function filterDerivedModel(model: DerivedModel, scope: DerivedScope): De
         }
         const label =
             edge.kind === "execution"
-                ? edgeLabel(edge.actionKind ?? "Recorded execution", count)
+                ? edgeLabel(edge.actionType ?? "Recorded execution", count)
                 : edgeLabel("Observation order", count);
         return [{ ...edge, label, executions, orderLinks }];
     });

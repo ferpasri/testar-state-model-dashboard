@@ -1,15 +1,15 @@
 import { canonical, digest } from "../evidence/common";
-import { ComparisonBudget, MatchingLimitError } from "./budget";
-import { validateDefinition } from "./definition";
+import { ComparisonBudget, AbstractionLimitError } from "./budget";
+import { validateAbstractionRules } from "./abstraction-rules";
 import { buildEvidenceIndex, compare, referenceKey, runKey } from "./evidenceIndex";
 import { projectObservation } from "./projection";
 import {
     INTERPRETER_VERSION,
     type AnalysisSource,
-    type MatchingDefinition,
-    type MatchingGroup,
-    type MatchingPreview,
-    type MatchingProgress,
+    type AbstractionRules,
+    type ObservationGroup,
+    type AbstractionPreview,
+    type AbstractionProgress,
     type ObservationProjection,
     type ProjectedWidget,
     type WidgetCorrespondence,
@@ -17,22 +17,22 @@ import {
 
 interface GroupBuilder {
     comparison: unknown;
-    members: MatchingGroup["members"];
+    members: ObservationGroup["members"];
     widgetBuckets: Map<string, { description: unknown; members: ProjectedWidget["reference"][] }>;
 }
 
-export async function previewMatching(
+export async function previewAbstraction(
     sources: AnalysisSource[],
-    requestedDefinition: MatchingDefinition,
+    requestedDefinition: AbstractionRules,
     selectedRuns: string[],
-    report: (progress: MatchingProgress) => void = () => {},
-): Promise<MatchingPreview> {
-    const definition = validateDefinition(requestedDefinition);
+    report: (progress: AbstractionProgress) => void = () => {},
+): Promise<AbstractionPreview> {
+    const definition = validateAbstractionRules(requestedDefinition);
     const policyFingerprint = await hash(canonical(definition));
     report({ stage: "Indexing selected evidence", completed: 0, total: sources.length });
     const index = buildEvidenceIndex(sources, selectedRuns);
     const builders = new Map<string, GroupBuilder>();
-    const unmatched: MatchingPreview["unmatched"] = [];
+    const unmatched: AbstractionPreview["unmatched"] = [];
     const budget = new ComparisonBudget();
     let completed = 0;
     for (const indexed of index.observations.values()) {
@@ -43,12 +43,12 @@ export async function previewMatching(
                 throw new Error("None of the selected fields has a captured value.");
             }
         } catch (error) {
-            if (error instanceof MatchingLimitError) {
+            if (error instanceof AbstractionLimitError) {
                 throw error;
             }
             unmatched.push({
                 reference: indexed.reference,
-                sequence: indexed.observation.observation_index,
+                observationIndex: indexed.observation.observation_index,
                 reason:
                     error instanceof Error ? error.message : "The observation cannot be compared.",
             });
@@ -71,7 +71,7 @@ export async function previewMatching(
         }
     }
     const entries = [...builders.entries()];
-    const groups: MatchingGroup[] = [];
+    const groups: ObservationGroup[] = [];
     for (let start = 0; start < entries.length; start += 128) {
         groups.push(
             ...(await Promise.all(

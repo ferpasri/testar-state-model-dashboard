@@ -1,20 +1,20 @@
 import type { ImportedSource } from "./evidence/import";
-import type { ObservationGap } from "./evidence/trace";
+import type { ObservationOrderLink } from "./evidence/trace";
 import { Properties } from "./EvidenceFields";
 
-export function ObservationGapDetails({
+export function ObservationOrderLinkDetails({
     source,
-    gap,
+    orderLink,
     onSelectObservation,
     onSelectExecution,
 }: {
     source: ImportedSource;
-    gap: ObservationGap;
+    orderLink: ObservationOrderLink;
     onSelectObservation: (id: string) => void;
     onSelectExecution: (id: string) => void;
 }) {
-    const from = source.evidence.observations.get(gap.source)!;
-    const to = source.evidence.observations.get(gap.target)!;
+    const from = source.evidence.observations.get(orderLink.source)!;
+    const to = source.evidence.observations.get(orderLink.target)!;
     const attempts = Array.from(source.evidence.executions.values()).filter(
         (item) => item.execution.source_observation === from.id,
     );
@@ -28,7 +28,7 @@ export function ObservationGapDetails({
                 </p>
             </div>
             <div className="detail-body">
-                <span className="badge">Unknown action</span>
+                <span className="badge">Observation-order link</span>
                 <p className="notice">
                     These are consecutive observations in this test sequence. No completed action
                     execution connects them. There may have been no action, or an action was not

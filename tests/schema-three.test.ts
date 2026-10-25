@@ -2,12 +2,12 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { expect, test } from "vitest";
 import { importDirectory } from "../src/evidence/import";
-import { observationGaps } from "../src/evidence/trace";
+import { observationOrderLinks } from "../src/evidence/trace";
 import type { EvidenceEvent } from "../src/evidence/schema";
-import { Replay } from "../src/evidence/reconstructed-evidence";
+import { EvidenceReconstructor } from "../src/evidence/reconstructed-evidence";
 import { parseJson } from "../src/evidence/common";
 import { oracleResultsForObservation } from "../src/Details";
-import { buildDerivedModel, previewMatching, runKey } from "../src/analysis";
+import { buildAbstractModel, previewAbstraction, runKey } from "../src/analysis";
 import { fixtureFiles, sharedCases } from "./support";
 
 function directory(name: string): string {
@@ -17,8 +17,8 @@ test("separate test sequences can share an abstract state without creating a tra
     const [source] = await importDirectory(fixtureFiles(directory("multiple-test-sequences")));
     const observations = [...source.evidence.observations.values()];
     expect(observations.map((item) => item.observation_index)).toEqual([1, 1]);
-    expect(observationGaps(source.evidence, observations)).toEqual([]);
-    const preview = await previewMatching(
+    expect(observationOrderLinks(source.evidence, observations)).toEqual([]);
+    const preview = await previewAbstraction(
         [source],
         {
             version: 1,
@@ -28,7 +28,7 @@ test("separate test sequences can share an abstract state without creating a tra
         },
         [...source.evidence.runs.keys()].map((id) => runKey(source.id, id)),
     );
-    const model = buildDerivedModel(preview, [source]);
+    const model = buildAbstractModel(preview, [source]);
     expect(model.nodes).toHaveLength(1);
     expect(model.nodes[0].members).toHaveLength(2);
     expect(model.edges).toEqual([]);
@@ -66,10 +66,15 @@ test("retains the full unsigned index range without rounding", () => {
             event.data.timestamp_micros = 18446744073709551615n;
         }
     }
-    const replay = new Replay({ schema_version: 3, evidence_id: "large-index" });
-    events.forEach((event) => replay.apply(event));
-    expect([...replay.evidence.observations.values()][0].observation_index).toBe(
+    const reconstructor = new EvidenceReconstructor({
+        schema_version: 3,
+        evidence_id: "large-index",
+    });
+    events.forEach((event) => reconstructor.apply(event));
+    expect([...reconstructor.evidence.observations.values()][0].observation_index).toBe(
         18446744073709551615n,
     );
-    expect([...replay.evidence.sequences.values()][0].sequence_index).toBe(18446744073709551615n);
+    expect([...reconstructor.evidence.sequences.values()][0].sequence_index).toBe(
+        18446744073709551615n,
+    );
 });

@@ -34,7 +34,7 @@ function PropertyCoverage({
                         setLimit(50);
                     }}
                 />
-                Only properties without recorded evaluations
+                Only properties without recorded oracle results
             </label>
             <p className="muted">
                 {groups.length} captured properties shown; declared aliases are grouped.
@@ -83,16 +83,18 @@ export function EvaluationCoverage({
     const coverage = coverageForObservation(index, observation);
     const [runFilter, setRunFilter] = useState("no-direct");
     const [widgetFilter, setWidgetFilter] = useState("missing-properties");
-    const [visitLimit, setVisitLimit] = useState(50);
+    const [observationLimit, setObservationLimit] = useState(50);
     const [widgetLimit, setWidgetLimit] = useState(50);
-    const visits = Array.from(source.evidence.observations.values())
+    const observations = Array.from(source.evidence.observations.values())
         .filter((item) => item.test_sequence === observation.test_sequence)
         .sort((left, right) => compareIndex(left.observation_index, right.observation_index));
-    const filteredVisits = visits.filter((item) => {
-        const visit = coverageForObservation(index, item);
+    const filteredObservations = observations.filter((item) => {
+        const observation = coverageForObservation(index, item);
         return (
             runFilter === "all" ||
-            (runFilter === "no-direct" ? visit.directResults === 0 : visit.detailedResults === 0)
+            (runFilter === "no-direct"
+                ? observation.directResults === 0
+                : observation.detailedResults === 0)
         );
     });
     const widgets = observation.recorded_state.widgets.filter((widget) => {
@@ -137,7 +139,7 @@ export function EvaluationCoverage({
                 </p>
             )}
             <CaptureDescription properties={observation.recorded_state.properties} />
-            <h3>Visits in this run</h3>
+            <h3>Observations in this run</h3>
             <label className="search-label">
                 Run coverage
                 <select
@@ -145,19 +147,19 @@ export function EvaluationCoverage({
                     value={runFilter}
                     onChange={(event) => {
                         setRunFilter(event.target.value);
-                        setVisitLimit(50);
+                        setObservationLimit(50);
                     }}
                 >
                     <option value="no-direct">Without any direct evaluation results</option>
                     <option value="no-detailed">Without widget/property results</option>
-                    <option value="all">All visits</option>
+                    <option value="all">All observations</option>
                 </select>
             </label>
             <p className="muted">
-                {filteredVisits.length} of {visits.length} visits match.
+                {filteredObservations.length} of {observations.length} observations match.
             </p>
-            <div className="coverage-visits">
-                {filteredVisits.slice(0, visitLimit).map((item) => {
+            <div className="coverage-observations">
+                {filteredObservations.slice(0, observationLimit).map((item) => {
                     const result = coverageForObservation(index, item);
                     return (
                         <button
@@ -171,9 +173,12 @@ export function EvaluationCoverage({
                     );
                 })}
             </div>
-            {filteredVisits.length > visitLimit && (
-                <button className="quiet" onClick={() => setVisitLimit((value) => value + 50)}>
-                    Show more visits
+            {filteredObservations.length > observationLimit && (
+                <button
+                    className="quiet"
+                    onClick={() => setObservationLimit((value) => value + 50)}
+                >
+                    Show more observations
                 </button>
             )}
             <h3>Captured state properties</h3>
@@ -242,8 +247,8 @@ export function EvaluationCoverage({
             <p className="muted">
                 The lists group declared aliases and exclude the three shared capture-description
                 metadata fields. Nested objects count as one property; their fields are not
-                expanded. Evaluations of absent or uncaptured properties remain visible in
-                Evaluations.
+                expanded. Oracle results of absent or uncaptured properties remain visible in Oracle
+                results.
             </p>
         </section>
     );

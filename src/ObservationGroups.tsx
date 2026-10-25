@@ -1,15 +1,20 @@
 import { useEffect, useMemo, useState } from "react";
-import type { EvidenceReference, MatchingGroup, MatchingPreview, AnalysisSource } from "./analysis";
+import type {
+    EvidenceReference,
+    ObservationGroup,
+    AbstractionPreview,
+    AnalysisSource,
+} from "./analysis";
 import { displayValue, formatJson } from "./evidence/common";
 
 interface Props {
-    preview: MatchingPreview;
+    preview: AbstractionPreview;
     sources: AnalysisSource[];
     groupFocus?: { id: string };
     onOpenObservation: (reference: EvidenceReference) => void;
 }
 
-function distinctRuns(group: MatchingGroup) {
+function distinctRuns(group: ObservationGroup) {
     return new Set(
         group.members.map((member) =>
             JSON.stringify([member.reference.source, member.reference.run]),
@@ -17,7 +22,7 @@ function distinctRuns(group: MatchingGroup) {
     ).size;
 }
 
-export function MatchingResults({ preview, sources, groupFocus, onOpenObservation }: Props) {
+export function ObservationGroups({ preview, sources, groupFocus, onOpenObservation }: Props) {
     const [filter, setFilter] = useState("cross-run");
     const [selected, setSelected] = useState("");
     const [limit, setLimit] = useState(50);
@@ -60,8 +65,8 @@ export function MatchingResults({ preview, sources, groupFocus, onOpenObservatio
     }
 
     return (
-        <section className="matching-results">
-            <div className="matching-stats" aria-label="Indexed evidence">
+        <section className="abstraction-results">
+            <div className="abstraction-stats" aria-label="Indexed evidence">
                 {Object.entries(preview.index).map(([name, count]) => (
                     <div key={name}>
                         <strong>{count}</strong>
@@ -73,8 +78,8 @@ export function MatchingResults({ preview, sources, groupFocus, onOpenObservatio
                 Exact agreement under these rules proposes a correspondence. Each observation keeps
                 its original actions, screenshots, and oracle results.
             </p>
-            <div className="matching-columns">
-                <section className="matching-panel">
+            <div className="abstraction-columns">
+                <section className="abstraction-panel">
                     <h2>Proposed groups</h2>
                     <label className="search-label">
                         Group filter
@@ -134,7 +139,7 @@ export function MatchingResults({ preview, sources, groupFocus, onOpenObservatio
                 )}
             </div>
             {preview.unmatched.length > 0 && (
-                <details className="matching-panel">
+                <details className="abstraction-panel">
                     <summary>
                         Observations that could not be compared ({preview.unmatched.length})
                     </summary>
@@ -144,7 +149,7 @@ export function MatchingResults({ preview, sources, groupFocus, onOpenObservatio
                     {preview.unmatched.slice(0, 50).map((item) => (
                         <div className="match-member" key={JSON.stringify(item.reference)}>
                             <strong>
-                                {sourceName(item.reference)} / observation {item.sequence}
+                                {sourceName(item.reference)} / observation {item.observationIndex}
                             </strong>
                             <p>{item.reason}</p>
                             <button
@@ -157,7 +162,7 @@ export function MatchingResults({ preview, sources, groupFocus, onOpenObservatio
                     ))}
                 </details>
             )}
-            <details className="matching-panel">
+            <details className="abstraction-panel">
                 <summary>Matching provenance</summary>
                 <p className="muted">
                     Interpreter {preview.interpreterVersion}. Definition fingerprint:{" "}
@@ -175,7 +180,7 @@ function GroupDetails({
     widgetMatching,
     onOpenObservation,
 }: {
-    group: MatchingGroup;
+    group: ObservationGroup;
     sourceName: (reference: EvidenceReference) => string;
     widgetMatching: boolean;
     onOpenObservation: (reference: EvidenceReference) => void;
@@ -184,7 +189,7 @@ function GroupDetails({
     const [widgetLimit, setWidgetLimit] = useState(20);
     const [showComparison, setShowComparison] = useState(false);
     return (
-        <section className="matching-panel">
+        <section className="abstraction-panel">
             <h2>Group members</h2>
             <p className="muted">
                 The selected values agree after normalization. Open an original observation to
@@ -201,7 +206,7 @@ function GroupDetails({
                 <article className="match-member" key={JSON.stringify(member.reference)}>
                     <strong>{sourceName(member.reference)}</strong>
                     <p className="muted">
-                        Observation {member.sequence} / capture: {member.capture}
+                        Observation {member.observationIndex} / capture: {member.capture}
                     </p>
                     <dl className="properties">
                         {member.stateFields.map((field) => (

@@ -9,20 +9,20 @@ function directory(name: string): string {
 test("selects individual test sequences without inventing links between them", async ({ page }) => {
     await page.goto("/");
     await page.getByLabel("Evidence directory").setInputFiles(directory("multiple-test-sequences"));
-    await expect(page.locator(".timeline .visit")).toHaveCount(2);
+    await expect(page.locator(".timeline .observation")).toHaveCount(2);
     const select = page.getByLabel("Test sequence", { exact: true });
     await expect(select.locator("option")).toHaveCount(3);
     await select.selectOption({ index: 2 });
-    await expect(page.locator(".timeline .visit")).toHaveCount(1);
-    await page.getByRole("button", { name: "Evaluations", exact: true }).click();
+    await expect(page.locator(".timeline .observation")).toHaveCount(1);
+    await page.getByRole("button", { name: "Oracle results", exact: true }).click();
     await expect(page.locator(".evaluation")).toHaveCount(1);
     await select.selectOption({ index: 0 });
-    await expect(page.locator(".timeline .visit")).toHaveCount(2);
+    await expect(page.locator(".timeline .observation")).toHaveCount(2);
 });
 test("shows oracle values and optional severity independently of status", async ({ page }) => {
     await page.goto("/");
     await page.getByLabel("Evidence directory").setInputFiles(directory("oracle-severity"));
-    await page.getByRole("button", { name: "Evaluations", exact: true }).click();
+    await page.getByRole("button", { name: "Oracle results", exact: true }).click();
     const critical = page.locator(".evaluation").filter({ hasText: '"label": "critical"' });
     await expect(critical).toHaveCount(1);
     await expect(critical.locator(".badge.failed")).toBeVisible();
@@ -58,5 +58,5 @@ test("keeps sequence selection available when a sequence has no observations", a
     await select.selectOption({ index: 1 });
     await expect(page.getByText("No observations were recorded in this selection.")).toBeVisible();
     await select.selectOption({ index: 0 });
-    await expect(page.locator(".timeline .visit")).toHaveCount(1);
+    await expect(page.locator(".timeline .observation")).toHaveCount(1);
 });

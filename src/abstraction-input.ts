@@ -1,8 +1,8 @@
 import { testRunForSequence } from "./evidence/reconstructed-evidence";
-import { MATCHING_LIMITS, runKey, type AnalysisSource } from "./analysis";
+import { ABSTRACTION_LIMITS, runKey, type AnalysisSource } from "./analysis";
 import type { ImportedSource } from "./evidence/import";
 
-export function matchingInputs(
+export function abstractionInputs(
     sources: ImportedSource[],
     selectedRuns: string[],
 ): AnalysisSource[] {
@@ -27,8 +27,8 @@ export function matchingInputs(
             widgetsCount += observation.recorded_state.widgets.length;
         }
         if (
-            observationsCount > MATCHING_LIMITS.observations ||
-            widgetsCount > MATCHING_LIMITS.widgets
+            observationsCount > ABSTRACTION_LIMITS.observations ||
+            widgetsCount > ABSTRACTION_LIMITS.widgets
         ) {
             throw new Error(
                 "Select fewer runs. Matching supports up to 10,000 observations and 100,000 widgets.",
@@ -41,7 +41,9 @@ export function matchingInputs(
         );
         const actionIds = new Set([
             ...Array.from(observations.values()).flatMap((observation) =>
-                observation.available_actions.map((candidate) => candidate.action_description),
+                observation.available_actions.map(
+                    (availableAction) => availableAction.action_description,
+                ),
             ),
             ...Array.from(
                 executions.values(),

@@ -2,7 +2,7 @@ import type { ImportedSource } from "../evidence/import";
 import type { Observation } from "../evidence/schema";
 
 export const INTERPRETER_VERSION = "1.1.0";
-export const MATCHING_LIMITS = {
+export const ABSTRACTION_LIMITS = {
     definitionBytes: 64 * 1024,
     observations: 10_000,
     widgets: 100_000,
@@ -36,7 +36,7 @@ export type Predicate =
     | { keys: string[]; op: "equals"; value: unknown }
     | { keys: string[]; op: "contains"; value: string };
 
-export interface MatchingDefinition {
+export interface AbstractionRules {
     version: 1;
     name: string;
     state: Field[];
@@ -65,9 +65,9 @@ export interface FieldExplanation {
     missing: boolean;
 }
 
-export interface MatchingMember {
+export interface GroupedObservation {
     reference: EvidenceReference;
-    sequence: number | bigint;
+    observationIndex: number | bigint;
     capture: Observation["recorded_state"]["capture"];
     stateFields: FieldExplanation[];
     includedWidgets: number;
@@ -81,10 +81,10 @@ export interface WidgetCorrespondence {
     ambiguous: boolean;
 }
 
-export interface MatchingGroup {
+export interface ObservationGroup {
     id: string;
     comparison: unknown;
-    members: MatchingMember[];
+    members: GroupedObservation[];
     widgetCorrespondences: WidgetCorrespondence[];
 }
 
@@ -97,8 +97,8 @@ export interface IndexCounts {
     executions: number;
 }
 
-export interface MatchingPreview {
-    definition: MatchingDefinition;
+export interface AbstractionPreview {
+    definition: AbstractionRules;
     policyFingerprint: string;
     interpreterVersion: string;
     inputScope: {
@@ -106,12 +106,16 @@ export interface MatchingPreview {
         runs: Array<{ source: string; run: string }>;
     };
     index: IndexCounts;
-    groups: MatchingGroup[];
-    unmatched: Array<{ reference: EvidenceReference; sequence: number | bigint; reason: string }>;
+    groups: ObservationGroup[];
+    unmatched: Array<{
+        reference: EvidenceReference;
+        observationIndex: number | bigint;
+        reason: string;
+    }>;
     counts: { observations: number; groups: number; sharedGroups: number; unmatched: number };
 }
 
-export interface MatchingProgress {
+export interface AbstractionProgress {
     stage: string;
     completed: number;
     total: number;
@@ -136,7 +140,7 @@ export interface ProjectedWidget {
 
 export interface ObservationProjection {
     comparison: unknown;
-    member: MatchingMember;
+    member: GroupedObservation;
     widgets: ProjectedWidget[];
     informative: boolean;
 }

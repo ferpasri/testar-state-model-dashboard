@@ -1,5 +1,5 @@
 import { canonical, digest, EvidenceError, parseJson, requireEvidence, safePath } from "./common";
-import { Replay, type ReconstructedEvidence } from "./reconstructed-evidence";
+import { EvidenceReconstructor, type ReconstructedEvidence } from "./reconstructed-evidence";
 import { manifestSchema } from "./schema";
 import { imageDimensions } from "./images";
 
@@ -139,7 +139,7 @@ async function importTrace(
         evidence && evidence.size <= LIMITS.logBytes,
         "evidence.jsonl is missing or exceeds 128 MiB.",
     );
-    const replay = new Replay(manifestResult.data);
+    const reconstructor = new EvidenceReconstructor(manifestResult.data);
     let processed = 0;
     for await (const entry of lines(evidence)) {
         try {
@@ -148,7 +148,7 @@ async function importTrace(
                 "Evidence exceeds the 100,000-record limit.",
             );
             requireEvidence(entry.text.trim().length > 0, "Empty JSONL record.");
-            replay.apply(parseJson(entry.text));
+            reconstructor.apply(parseJson(entry.text));
         } catch (error) {
             throw new EvidenceError(
                 "evidence.jsonl:" +
@@ -163,7 +163,7 @@ async function importTrace(
         }
     }
     const artifacts = new Map<string, File>();
-    const references = Array.from(replay.evidence.observations.values()).flatMap(
+    const references = Array.from(reconstructor.evidence.observations.values()).flatMap(
         (item) => item.artifacts,
     );
     const verified = new Map<string, string>();
@@ -215,14 +215,16 @@ async function importTrace(
     }
     const logHash = await digest(await readBytes(evidence, "evidence.jsonl"));
     const fingerprint = await digest(
-        new TextEncoder().encode(canonical(replay.evidence.manifest) + ":" + logHash),
+        new TextEncoder().encode(canonical(reconstructor.evidence.manifest) + ":" + logHash),
     );
     report({ stage: "Ready", completed: processed, total: processed });
     return {
         id: fingerprint,
         fingerprint,
-        label: root.replace(/\/$/u, "").split("/").at(-1) || replay.evidence.manifest.evidence_id,
-        evidence: replay.evidence,
+        label:
+            root.replace(/\/$/u, "").split("/").at(-1) ||
+            reconstructor.evidence.manifest.evidence_id,
+        evidence: reconstructor.evidence,
         artifacts,
         bytes:
             evidence.size +

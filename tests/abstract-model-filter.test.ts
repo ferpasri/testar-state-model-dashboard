@@ -1,14 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
     runKey,
-    type DerivedEdge,
-    type DerivedModel,
-    type DerivedNode,
+    type AbstractModelEdge,
+    type AbstractModel,
+    type AbstractModelNode,
     type EvidenceReference,
     type ExecutionReference,
 } from "../src/analysis";
-import { edgeLabel } from "../src/analysis/derivedLabels";
-import { filterDerivedModel } from "../src/derived-filter";
+import { edgeLabel } from "../src/analysis/abstractModelLabels";
+import { filterAbstractModel } from "../src/abstract-model-filter";
 
 function observation(source: string, id: string, run = "run"): EvidenceReference {
     return { source, run, observation: id };
@@ -18,7 +18,7 @@ function execution(source: string, id: string, run = "run"): ExecutionReference 
     return { source, run, execution: id };
 }
 
-function node(id: string, members: EvidenceReference[], diagnostic = false): DerivedNode {
+function node(id: string, members: EvidenceReference[], diagnostic = false): AbstractModelNode {
     return diagnostic
         ? { id, label: id, members, unmatchedReason: "The selected property was unavailable." }
         : { id, label: id, groupId: id, members };
@@ -29,20 +29,20 @@ function actionEdge(
     from: string,
     to: string,
     executions: ExecutionReference[],
-): DerivedEdge {
+): AbstractModelEdge {
     return {
         id,
         kind: "execution",
         source: from,
         target: to,
         label: edgeLabel("click", executions.length),
-        actionKind: "click",
+        actionType: "click",
         executions,
         orderLinks: [],
     };
 }
 
-function fixture(): DerivedModel {
+function fixture(): AbstractModel {
     return {
         nodes: [
             node("home", [
@@ -120,14 +120,14 @@ function fixture(): DerivedModel {
     };
 }
 
-describe("derived model source and run filtering", () => {
+describe("abstract model source and run filtering", () => {
     it("preserves all supported evidence when source and run are unrestricted", () => {
         const original = fixture();
-        expect(filterDerivedModel(original, { source: "all", run: "all" })).toEqual(original);
+        expect(filterAbstractModel(original, { source: "all", run: "all" })).toEqual(original);
     });
 
     it("keeps only a source's original members and supported branches through shared states", () => {
-        const filtered = filterDerivedModel(fixture(), { source: "a", run: "all" });
+        const filtered = filterAbstractModel(fixture(), { source: "a", run: "all" });
         expect(filtered.nodes.map((item) => item.id)).toEqual([
             "home",
             "shared",
@@ -159,7 +159,7 @@ describe("derived model source and run filtering", () => {
     });
 
     it("uses source-scoped run identity despite repeated run, observation, and execution names", () => {
-        const filtered = filterDerivedModel(fixture(), { source: "all", run: runKey("b", "run") });
+        const filtered = filterAbstractModel(fixture(), { source: "all", run: runKey("b", "run") });
         expect(filtered.nodes.map((item) => item.id)).toEqual(["home", "shared", "b-branch"]);
         expect(filtered.nodes.flatMap((item) => item.members)).toEqual([
             observation("b", "home"),
@@ -180,7 +180,7 @@ describe("derived model source and run filtering", () => {
     });
 
     it("combines source and run restrictions instead of treating either as sufficient", () => {
-        const filtered = filterDerivedModel(fixture(), { source: "a", run: runKey("b", "run") });
+        const filtered = filterAbstractModel(fixture(), { source: "a", run: runKey("b", "run") });
         expect(filtered.nodes).toEqual([]);
         expect(filtered.edges).toEqual([]);
         expect(filtered.unlinkedExecutions).toEqual([]);
@@ -189,10 +189,10 @@ describe("derived model source and run filtering", () => {
 
     it("updates aggregate labels and counts from the retained provenance", () => {
         const original = fixture();
-        const filtered = filterDerivedModel(original, { source: "a", run: "all" });
+        const filtered = filterAbstractModel(original, { source: "a", run: "all" });
         const shared = filtered.edges.find((edge) => edge.id === "to-shared")!;
         expect(shared.id).toBe("to-shared");
-        expect(shared.actionKind).toBe("click");
+        expect(shared.actionType).toBe("click");
         expect(shared.label).toBe("click");
         expect(shared.executions).toEqual([execution("a", "same")]);
         expect(original.edges.find((edge) => edge.id === "to-shared")!.executions).toHaveLength(2);
@@ -204,7 +204,7 @@ describe("derived model source and run filtering", () => {
         original.edges.find((edge) => edge.id === "to-shared")!.executions = [
             execution("b", "same"),
         ];
-        const filtered = filterDerivedModel(original, { source: "a", run: "all" });
+        const filtered = filterAbstractModel(original, { source: "a", run: "all" });
         expect(filtered.nodes.some((item) => item.id === "home")).toBe(true);
         expect(filtered.nodes.some((item) => item.id === "shared")).toBe(true);
         expect(filtered.edges.some((edge) => edge.id === "to-shared")).toBe(false);
@@ -215,13 +215,13 @@ describe("derived model source and run filtering", () => {
         original.edges.push(
             actionEdge("unsupported-endpoint", "home", "b-branch", [execution("a", "other")]),
         );
-        const filtered = filterDerivedModel(original, { source: "a", run: "all" });
+        const filtered = filterAbstractModel(original, { source: "a", run: "all" });
         expect(filtered.nodes.some((item) => item.id === "b-branch")).toBe(false);
         expect(filtered.edges.some((edge) => edge.id === "unsupported-endpoint")).toBe(false);
     });
 
     it("retains self-loop execution provenance while removing other sources' contributions", () => {
-        const filtered = filterDerivedModel(fixture(), { source: "c", run: "all" });
+        const filtered = filterAbstractModel(fixture(), { source: "c", run: "all" });
         const loop = filtered.edges.find((edge) => edge.id === "loop")!;
         expect(loop.source).toBe("home");
         expect(loop.target).toBe("home");
@@ -242,9 +242,9 @@ describe("derived model source and run filtering", () => {
             { source: observation("a", "home"), target: observation("b", "shared") },
             { source: observation("a", "home"), target: observation("a", "shared", "other") },
         );
-        const unrestricted = filterDerivedModel(original, { source: "all", run: "all" });
+        const unrestricted = filterAbstractModel(original, { source: "all", run: "all" });
         expect(unrestricted.edges.find((edge) => edge.id === "order")!.orderLinks).toHaveLength(2);
-        const selected = filterDerivedModel(original, { source: "a", run: "all" });
+        const selected = filterAbstractModel(original, { source: "a", run: "all" });
         expect(selected.edges.find((edge) => edge.id === "order")!.orderLinks).toEqual([
             {
                 source: observation("a", "home"),
@@ -261,7 +261,7 @@ describe("derived model source and run filtering", () => {
                 execution("a", "second-run-execution", "other"),
             ]),
         );
-        const filtered = filterDerivedModel(original, { source: "a", run: runKey("a", "other") });
+        const filtered = filterAbstractModel(original, { source: "a", run: runKey("a", "other") });
         expect(filtered.nodes.map((item) => item.id)).toEqual(["second-run"]);
         expect(filtered.edges.map((edge) => edge.id)).toEqual(["second-loop"]);
         expect(filtered.counts).toMatchObject({
@@ -295,7 +295,7 @@ describe("derived model source and run filtering", () => {
                 reason: "Rejected.",
             },
         ];
-        const filtered = filterDerivedModel(original, { source: "a", run: "all" });
+        const filtered = filterAbstractModel(original, { source: "a", run: "all" });
         expect(filtered.nodes).toEqual([]);
         expect(filtered.edges).toEqual([]);
         expect(filtered.unlinkedExecutions.map((item) => item.sourceNode)).toEqual([
@@ -310,7 +310,7 @@ describe("derived model source and run filtering", () => {
     });
 
     it("returns an empty scoped model when no evidence matches", () => {
-        const filtered = filterDerivedModel(fixture(), { source: "unknown", run: "all" });
+        const filtered = filterAbstractModel(fixture(), { source: "unknown", run: "all" });
         expect(filtered.nodes).toEqual([]);
         expect(filtered.edges).toEqual([]);
         expect(filtered.unlinkedExecutions).toEqual([]);
@@ -320,14 +320,14 @@ describe("derived model source and run filtering", () => {
     it("keeps stable IDs and labels while returning independent provenance arrays and references", () => {
         const original = fixture();
         const before = JSON.stringify(original);
-        const filtered = filterDerivedModel(original, { source: "a", run: "all" });
+        const filtered = filterAbstractModel(original, { source: "a", run: "all" });
         expect(filtered.nodes[0].id).toBe(original.nodes[0].id);
         expect(filtered.nodes[0].label).toBe(original.nodes[0].label);
         expect(filtered.nodes[0].groupId).toBe(original.nodes[0].groupId);
         expect(filtered.nodes.find((item) => item.id === "diagnostic")!.unmatchedReason).toBe(
             original.nodes.find((item) => item.id === "diagnostic")!.unmatchedReason,
         );
-        expect(filterDerivedModel(original, { source: "a", run: "all" })).toEqual(filtered);
+        expect(filterAbstractModel(original, { source: "a", run: "all" })).toEqual(filtered);
         filtered.nodes[0].members[0].source = "changed";
         filtered.edges[0].executions[0].source = "changed";
         filtered.edges.find((edge) => edge.id === "order")!.orderLinks[0].source.source = "changed";

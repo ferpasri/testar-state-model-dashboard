@@ -6,7 +6,7 @@ import {
     coverageForObservation,
     propertiesWithoutResults,
 } from "../src/evidence/coverage";
-import { observationGaps } from "../src/evidence/trace";
+import { observationOrderLinks } from "../src/evidence/trace";
 import type { ReconstructedEvidence } from "../src/evidence/reconstructed-evidence";
 import type { OracleResult, Observation } from "../src/evidence/schema";
 import { fixtureFiles, sharedCases } from "./support";
@@ -70,7 +70,7 @@ test("whole observation and widget results leave individual properties without r
     expect(coverage.stateProperties.size).toBe(0);
 });
 
-test("all recorded statuses count, while aliases and later visits remain independent", async () => {
+test("all recorded statuses count, while aliases and later observations remain independent", async () => {
     const evidence = await modelFor();
     evidence.oracleResults = [];
     const observation = Array.from(evidence.observations.values())[0];
@@ -124,15 +124,15 @@ test("state-property evaluations retain absent targets without expanding capture
 
 test("completed adjacent executions need no order-only link and are not modified", async () => {
     const evidence = await modelFor("broader-oracle-targets");
-    const visits = Array.from(evidence.observations.values());
+    const observations = Array.from(evidence.observations.values());
     const executions = structuredClone(evidence.executions);
-    expect(observationGaps(evidence, visits)).toEqual([]);
+    expect(observationOrderLinks(evidence, observations)).toEqual([]);
     expect(evidence.executions).toEqual(executions);
 });
 
 test("rejected and incomplete executions leave only observation order known", async () => {
     const evidence = await modelFor("broader-oracle-targets");
-    const visits = Array.from(evidence.observations.values()).sort((a, b) =>
+    const observations = Array.from(evidence.observations.values()).sort((a, b) =>
         a.observation_index < b.observation_index
             ? -1
             : a.observation_index > b.observation_index
@@ -143,28 +143,31 @@ test("rejected and incomplete executions leave only observation order known", as
     execution.resultingObservation = null;
     for (const status of ["failed", "incomplete"] as const) {
         execution.status = status;
-        const gaps = observationGaps(evidence, [...visits].reverse());
-        expect(gaps).toHaveLength(1);
-        expect(gaps[0]).toMatchObject({ source: visits[0].id, target: visits[1].id });
+        const orderLinks = observationOrderLinks(evidence, [...observations].reverse());
+        expect(orderLinks).toHaveLength(1);
+        expect(orderLinks[0]).toMatchObject({
+            source: observations[0].id,
+            target: observations[1].id,
+        });
         expect(evidence.executions.size).toBe(1);
     }
 });
 
-test("order-only links never join different runs or skip hidden visits", async () => {
+test("order-only links never join different runs or skip hidden observations", async () => {
     const evidence = await modelFor("broader-oracle-targets");
     evidence.executions.clear();
-    const visits = Array.from(evidence.observations.values()).sort((a, b) =>
+    const observations = Array.from(evidence.observations.values()).sort((a, b) =>
         a.observation_index < b.observation_index
             ? -1
             : a.observation_index > b.observation_index
               ? 1
               : 0,
     );
-    const third = structuredClone(visits[1]);
+    const third = structuredClone(observations[1]);
     third.id = "third";
     third.observation_index++;
     evidence.observations.set(third.id, third);
-    expect(observationGaps(evidence, [visits[0], third])).toEqual([]);
+    expect(observationOrderLinks(evidence, [observations[0], third])).toEqual([]);
     const other = structuredClone(third);
     other.id = "other-run";
     other.test_sequence = "separate-run";
@@ -173,5 +176,5 @@ test("order-only links never join different runs or skip hidden visits", async (
         id: other.test_sequence,
     });
     evidence.observations.set(other.id, other);
-    expect(observationGaps(evidence, [third, other])).toEqual([]);
+    expect(observationOrderLinks(evidence, [third, other])).toEqual([]);
 });

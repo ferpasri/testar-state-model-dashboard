@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { assessmentContext } from "./evidence/assessment";
-import { Evaluation } from "./EvidenceFields";
+import { OracleResultView } from "./EvidenceFields";
 import type { ReconstructedEvidence } from "./evidence/reconstructed-evidence";
 import type { OracleResult } from "./evidence/schema";
 
 const statuses = ["passed", "failed", "pending", "unknown", "error"] as const;
 
-export function EvaluationList({
+export function OracleResults({
     oracleResults,
     evidence,
 }: {
@@ -39,7 +39,7 @@ export function EvaluationList({
     );
     return (
         <>
-            <div className="evaluation-filters" role="group" aria-label="Evaluation status">
+            <div className="evaluation-filters" role="group" aria-label="Oracle status">
                 {(["all", ...statuses] as const).map((value) => (
                     <button
                         key={value}
@@ -75,22 +75,20 @@ export function EvaluationList({
                 </div>
             )}
             <p className="muted" role="status">
-                {filtered.length} of {oracleResults.length} evaluations shown.
+                {filtered.length} of {oracleResults.length} oracle results shown.
             </p>
             {filtered.slice(0, limit).map((check) => (
-                <Evaluation
+                <OracleResultView
                     key={check.id}
                     data={check.data}
                     runFinished={evidence.runs.get(check.data.test_run)?.status === "finished"}
                     runReason={evidence.runs.get(check.data.test_run)?.reason ?? undefined}
                 />
             ))}
-            {filtered.length === 0 && (
-                <p className="muted">No recorded evaluations match this filter.</p>
-            )}
+            {filtered.length === 0 && <p className="muted">No oracle results match this filter.</p>}
             {filtered.length > limit && (
                 <button className="quiet" onClick={() => setLimit((value) => value + 50)}>
-                    Show more evaluations
+                    Show more oracle results
                 </button>
             )}
         </>

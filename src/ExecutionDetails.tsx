@@ -1,6 +1,6 @@
 import type { ImportedSource } from "./evidence/import";
 import { Properties } from "./EvidenceFields";
-import { EvaluationList } from "./EvaluationList";
+import { OracleResults } from "./OracleResults";
 
 export function ExecutionDetails({
     source,
@@ -66,12 +66,12 @@ export function ExecutionDetails({
                     <summary>Action description</summary>
                     <Properties values={action.properties} />
                 </details>
-                <h3>Evaluations targeting this execution</h3>
-                <EvaluationList oracleResults={oracleResults} evidence={source.evidence} />
+                <h3>Oracle results targeting this execution</h3>
+                <OracleResults oracleResults={oracleResults} evidence={source.evidence} />
                 {oracleResults.length === 0 && (
                     <p className="muted">
-                        No evaluation directly targets this execution. Observation, run, and
-                        sequence evaluations are available from the observation inspector.
+                        No oracle result directly targets this execution. Observation, run, and
+                        sequence oracle results are available from the observation inspector.
                     </p>
                 )}
             </div>

@@ -2,19 +2,19 @@ import { describe, expect, it } from "vitest";
 import {
     buildEvidenceIndex,
     DEFAULT_PRESETS,
-    MATCHING_LIMITS,
-    parseDefinition,
-    previewMatching,
+    ABSTRACTION_LIMITS,
+    parseAbstractionRules,
+    previewAbstraction,
     runKey,
     type AnalysisSource,
-    type MatchingDefinition,
+    type AbstractionRules,
 } from "../src/analysis";
 import { canonical, parseJson } from "../src/evidence/common";
 import type { ReconstructedEvidence } from "../src/evidence/reconstructed-evidence";
 import type { Observation } from "../src/evidence/schema";
 
 type Widget = Observation["recorded_state"]["widgets"][number];
-type Visit = {
+type ObservationInput = {
     id?: string;
     run?: string;
     properties?: Record<string, unknown>;
@@ -22,17 +22,17 @@ type Visit = {
     capture?: Observation["recorded_state"]["capture"];
 };
 
-function source(id: string, visits: Visit[]): AnalysisSource {
-    const observations = visits.map((visit, index): Observation => ({
-        id: visit.id ?? "observation-" + index,
-        test_sequence: visit.run ?? "run",
+function source(id: string, observationInputs: ObservationInput[]): AnalysisSource {
+    const observations = observationInputs.map((observation, index): Observation => ({
+        id: observation.id ?? "observation-" + index,
+        test_sequence: observation.run ?? "run",
         observation_index: index,
         timestamp_micros: index,
         recorded_state: {
             id: "snapshot-" + index,
-            properties: visit.properties ?? {},
-            widgets: visit.widgets ?? [],
-            capture: visit.capture ?? "complete",
+            properties: observation.properties ?? {},
+            widgets: observation.widgets ?? [],
+            capture: observation.capture ?? "complete",
         },
         available_actions: [],
         artifacts: [],
@@ -96,7 +96,7 @@ function runs(sources: AnalysisSource[]): string[] {
     );
 }
 
-function policy(overrides: Partial<MatchingDefinition> = {}): MatchingDefinition {
+function policy(overrides: Partial<AbstractionRules> = {}): AbstractionRules {
     return {
         version: 1,
         name: "Example comparison",
@@ -107,8 +107,8 @@ function policy(overrides: Partial<MatchingDefinition> = {}): MatchingDefinition
 }
 
 function widgetPolicy(
-    overrides: Partial<NonNullable<MatchingDefinition["widgets"]>> = {},
-): MatchingDefinition {
+    overrides: Partial<NonNullable<AbstractionRules["widgets"]>> = {},
+): AbstractionRules {
     return policy({
         widgets: {
             fields: [{ name: "name", keys: ["ui.name"] }],
@@ -121,7 +121,7 @@ function widgetPolicy(
 }
 
 async function preview(sources: AnalysisSource[], definition = policy()) {
-    return previewMatching(sources, definition, runs(sources));
+    return previewAbstraction(sources, definition, runs(sources));
 }
 
 describe("shared evidence index", () => {
@@ -174,7 +174,7 @@ describe("shared evidence index", () => {
             { run: "awaiting_execution_result", properties: { "ui.url": "/login" } },
             { run: "other", properties: { "ui.url": "/login" } },
         ]);
-        const result = await previewMatching([item], policy(), [
+        const result = await previewAbstraction([item], policy(), [
             runKey(item.id, "awaiting_execution_result"),
         ]);
         expect(result.index.observations).toBe(1);
@@ -199,14 +199,14 @@ describe("shared evidence index", () => {
     it("bounds selected observations and widgets", () => {
         const oversized = source(
             "large",
-            Array.from({ length: MATCHING_LIMITS.observations + 1 }, () => ({})),
+            Array.from({ length: ABSTRACTION_LIMITS.observations + 1 }, () => ({})),
         );
         expect(() => buildEvidenceIndex([oversized], runs([oversized]))).toThrow(
             "10,000 observations",
         );
         const manyWidgets = source("widgets", [
             {
-                widgets: Array.from({ length: MATCHING_LIMITS.widgets + 1 }, (_, index) =>
+                widgets: Array.from({ length: ABSTRACTION_LIMITS.widgets + 1 }, (_, index) =>
                     widget("w" + index, {}),
                 ),
             },
@@ -217,11 +217,13 @@ describe("shared evidence index", () => {
     });
 });
 
-describe("deterministic matching definitions", () => {
+describe("deterministic abstraction rules (JSON)s", () => {
     it("validates versions, operations, unknown fields, duplicate names and byte limits", () => {
-        expect(() => parseDefinition(canonical({ ...policy(), version: 99 }))).toThrow("version");
+        expect(() => parseAbstractionRules(canonical({ ...policy(), version: 99 }))).toThrow(
+            "version",
+        );
         expect(() =>
-            parseDefinition(
+            parseAbstractionRules(
                 canonical(
                     policy({
                         state: [
@@ -231,11 +233,11 @@ describe("deterministic matching definitions", () => {
                 ),
             ),
         ).toThrow("transforms");
-        expect(() => parseDefinition(canonical({ ...policy(), algorithm: "guess" }))).toThrow(
+        expect(() => parseAbstractionRules(canonical({ ...policy(), algorithm: "guess" }))).toThrow(
             "Definition",
         );
         expect(() =>
-            parseDefinition(
+            parseAbstractionRules(
                 canonical(
                     policy({
                         state: [
@@ -246,14 +248,14 @@ describe("deterministic matching definitions", () => {
                 ),
             ),
         ).toThrow("unique");
-        expect(() => parseDefinition(" ".repeat(MATCHING_LIMITS.definitionBytes + 1))).toThrow(
-            "64 KiB",
-        );
+        expect(() =>
+            parseAbstractionRules(" ".repeat(ABSTRACTION_LIMITS.definitionBytes + 1)),
+        ).toThrow("64 KiB");
     });
 
     it("ships presets in the same validated language as custom definitions", () => {
         for (const preset of DEFAULT_PRESETS) {
-            expect(parseDefinition(canonical(preset.definition))).toEqual(preset.definition);
+            expect(parseAbstractionRules(canonical(preset.definition))).toEqual(preset.definition);
         }
     });
 
@@ -632,7 +634,7 @@ describe("widget comparisons and original evidence", () => {
                 {
                     properties: { "ui.url": "/home" },
                     widgets: Array.from(
-                        { length: MATCHING_LIMITS.hierarchyDepth + 1 },
+                        { length: ABSTRACTION_LIMITS.hierarchyDepth + 1 },
                         (_, index) =>
                             widget(
                                 "w" + index,

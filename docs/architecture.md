@@ -22,7 +22,7 @@ The same application build should support public hosting and self-hosting. A com
 | ---------------------- | -------------------------------------------------------------------------------------------------------------------------- |
 | Import and validation  | Read selected files, identify supported formats, validate records and references, and verify artifact hashes.              |
 | Reconstructed evidence | Preserve imported records and expose queries over runs, observations, executions, widgets, properties, and oracle results. |
-| Analysis               | Build indexes, calculate groups, and create derived relationships with traceable inputs.                                   |
+| Analysis               | Build indexes, calculate groups, and build abstract models with traceable inputs.                                          |
 | Interface              | Present graphs, ordered traces, screenshots, details, filters, and validation messages.                                    |
 | Workspace              | Hold the user's imports, selections, annotations, grouping settings, and relationships.                                    |
 
@@ -36,13 +36,13 @@ Matching a schema version is the first compatibility check. Import also checks e
 
 Each import receives a local source identity. Record identities are interpreted within that source and their specified scope; identifiers from unrelated files must not accidentally connect records. Provenance, SUT information, and environment information remain available when users compare sources. Importing multiple sources does not itself establish that their states or widgets are equivalent.
 
-## Original evidence and derived views
+## Original evidence and abstract models
 
 Original records describe what the producer captured. The dashboard preserves them while maintaining grouping rules, annotations, and user-created relationships separately.
 
-A concrete trace shows ordered observations connected by completed action executions. Selected actions, execution results, recorded transitions, and incomplete executions retain their recorded meaning. Oracle results show their recorded targets and statuses. Capture limits and unavailable information remain visible to the user.
+An evidence trace shows ordered observations connected by completed action executions. Selected actions, execution results, recorded transitions, and incomplete executions retain their recorded meaning. Oracle results show their recorded targets and statuses. Capture limits and unavailable information remain visible to the user.
 
-Users define abstractions through a small versioned DSL, initially represented as JSON. Default presets and custom definitions use the same pipeline: select evidence, filter widgets or properties, normalize changing data, build comparison representations, and group observations or actions. Each group retains links to its contributing evidence. See [abstraction and derived models](abstraction.md) for the language direction and traceability requirements.
+Users define abstractions through a small versioned DSL, initially represented as JSON. Default presets and custom definitions use the same pipeline: select evidence, filter widgets or properties, normalize changing data, build comparison representations, and group observations or actions. Each group retains links to its contributing evidence. See [abstraction and abstract models](abstraction.md) for the language direction and traceability requirements.
 
 Observed execution links, user-created associations, and algorithm-generated relationships have distinguishable meanings in the interface. Users can inspect the origin and reasoning behind a relationship.
 

@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import cytoscape from "cytoscape";
-import type { DerivedEdge, DerivedModel, DerivedNode } from "./analysis";
-import type { ModelLayout, RenderingOptions } from "./DerivedRenderControls";
+import type { AbstractModelEdge, AbstractModel, AbstractModelNode } from "./analysis";
+import type { ModelLayout, RenderingOptions } from "./AbstractModelRenderControls";
 
 interface Props {
-    nodes: DerivedNode[];
-    edges: DerivedEdge[];
-    displayModel: DerivedModel;
+    nodes: AbstractModelNode[];
+    edges: AbstractModelEdge[];
+    displayModel: AbstractModel;
     visibleNodes: Set<string>;
     visibleEdges: Set<string>;
     selectedNode: string;
@@ -55,7 +55,7 @@ function layoutOptions(layout: ModelLayout): cytoscape.LayoutOptions {
     };
 }
 
-export function DerivedGraph({
+export function AbstractModelGraph({
     nodes,
     edges,
     displayModel,
@@ -211,7 +211,7 @@ export function DerivedGraph({
                 element.data(
                     "renderLabel",
                     options.showStateLabels && node
-                        ? node.label.slice(0, 80) + "\n" + node.members.length + " visits"
+                        ? node.label.slice(0, 80) + "\n" + node.members.length + " observations"
                         : "",
                 );
             });
@@ -226,7 +226,7 @@ export function DerivedGraph({
                 );
                 const name =
                     edge?.kind === "execution"
-                        ? (edge.actionKind ?? "Action")
+                        ? (edge.actionType ?? "Action")
                         : "Observation order";
                 const count =
                     edge?.kind === "execution"
@@ -298,11 +298,11 @@ export function DerivedGraph({
     }
 
     return (
-        <section className="graph-panel" aria-label="Derived model graph">
+        <section className="graph-panel" aria-label="Abstract model graph">
             <div className="panel-heading">
                 <div>
                     <span className="eyebrow">GROUPS AND RECORDED LINKS</span>
-                    <h2>Derived state model</h2>
+                    <h2>Abstract model</h2>
                 </div>
                 <div className="graph-options">
                     <button className="quiet" onClick={() => setLayoutRevision(layoutRevision + 1)}>
@@ -314,15 +314,15 @@ export function DerivedGraph({
                 </div>
             </div>
             <div
-                className="derived-graph"
+                className="abstract-model-graph"
                 ref={container}
                 role="img"
                 aria-label="Interactive model. States and transitions can also be selected in the lists below."
             />
             <div className="graph-note">
-                <span className="legend-dot" /> State group
-                <span className="legend-line" /> Recorded execution
-                <span className="legend-gap" /> Observation order only
+                <span className="legend-dot" /> Abstract state
+                <span className="legend-line" /> Abstract transition
+                <span className="legend-order-link" /> Observation order only
                 <span className="graph-hint">Scroll to zoom / Drag to pan</span>
             </div>
         </section>

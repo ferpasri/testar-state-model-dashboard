@@ -1,6 +1,6 @@
 import { z } from "zod";
 import { canonical, parseJson } from "../evidence/common";
-import { MATCHING_LIMITS, type MatchingDefinition } from "./types";
+import { ABSTRACTION_LIMITS, type AbstractionRules } from "./types";
 
 const text = z.string().min(1).max(256);
 const keys = z.array(text).min(1).max(8);
@@ -75,18 +75,18 @@ const definitionSchema = z
         "Select state fields or widget fields.",
     );
 
-export function parseDefinition(text: string): MatchingDefinition {
-    if (new TextEncoder().encode(text).byteLength > MATCHING_LIMITS.definitionBytes) {
-        throw new Error("The matching definition exceeds 64 KiB.");
+export function parseAbstractionRules(text: string): AbstractionRules {
+    if (new TextEncoder().encode(text).byteLength > ABSTRACTION_LIMITS.definitionBytes) {
+        throw new Error("The abstraction rules (JSON) exceeds 64 KiB.");
     }
     const parsed = definitionSchema.safeParse(parseJson(text));
     if (!parsed.success) {
         const issue = parsed.error.issues[0];
         throw new Error("Definition " + (issue.path.join(".") || "root") + ": " + issue.message);
     }
-    return parsed.data as MatchingDefinition;
+    return parsed.data as AbstractionRules;
 }
 
-export function validateDefinition(definition: MatchingDefinition): MatchingDefinition {
-    return parseDefinition(canonical(definition));
+export function validateAbstractionRules(definition: AbstractionRules): AbstractionRules {
+    return parseAbstractionRules(canonical(definition));
 }

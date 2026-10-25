@@ -3,7 +3,7 @@ import { expect, test, type Page, type TestInfo } from "@playwright/test";
 import type { Core } from "cytoscape";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import type { DerivedModel } from "../../src/analysis";
+import type { AbstractModel } from "../../src/analysis";
 import type { EvidenceEvent } from "../../src/evidence/schema";
 import { sharedCases } from "../support";
 
@@ -125,13 +125,11 @@ async function openModelDirectories(page: Page, directories: string[]): Promise<
     }
     await page.getByRole("button", { name: "Construct model", exact: true }).click();
     await page
-        .getByLabel("Matching preset", { exact: true })
+        .getByLabel("Abstraction preset", { exact: true })
         .selectOption({ label: "Page address" });
     await page.getByRole("button", { name: "Build model", exact: true }).click();
-    await expect(
-        page.getByRole("heading", { name: "Derived state model", exact: true }),
-    ).toBeVisible();
-    await expect(page.locator(".derived-graph canvas").first()).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Abstract model", exact: true })).toBeVisible();
+    await expect(page.locator(".abstract-model-graph canvas").first()).toBeVisible();
     await page
         .getByRole("checkbox", { name: "Show observation-order links", exact: true })
         .uncheck();
@@ -142,12 +140,12 @@ async function openModel(page: Page, info: TestInfo): Promise<void> {
         sourceVariant(info, "render-source-a", "b", false),
         sourceVariant(info, "render-source-b", "c", true),
     ]);
-    await expect(page.locator(".derived-node")).toHaveCount(5);
-    await expect(page.locator(".derived-edge")).toHaveCount(5);
+    await expect(page.locator(".abstract-model-node")).toHaveCount(5);
+    await expect(page.locator(".abstract-model-edge")).toHaveCount(5);
 }
 
 async function snapshot(page: Page) {
-    return page.locator(".derived-graph").evaluate((element) => {
+    return page.locator(".abstract-model-graph").evaluate((element) => {
         const graph = (element as GraphContainer)._cyreg.cy;
         return {
             nodes: graph.nodes().map((node) => ({
@@ -195,7 +193,7 @@ async function downloadModel(page: Page): Promise<unknown> {
     const pendingDownload = page.waitForEvent("download");
     await page.getByRole("button", { name: "Download model", exact: true }).click();
     const download = await pendingDownload;
-    expect(download.suggestedFilename()).toBe("derived-model.json");
+    expect(download.suggestedFilename()).toBe("abstract-model.json");
     const downloadedPath = await download.path();
     expect(downloadedPath).not.toBeNull();
     return JSON.parse(readFileSync(downloadedPath!, "utf8"));
@@ -286,8 +284,8 @@ test("shows only selected evidence with accurate support while keeping the downl
     const originalPositions = positions(await snapshot(page));
     await selectSource(page, "render-source-a");
     await page.getByLabel("Show only selected source/run", { exact: true }).check();
-    await expect(page.locator(".derived-node")).toHaveCount(3);
-    await expect(page.locator(".derived-edge")).toHaveCount(3);
+    await expect(page.locator(".abstract-model-node")).toHaveCount(3);
+    await expect(page.locator(".abstract-model-edge")).toHaveCount(3);
     const filtered = await snapshot(page);
     expect(filtered.nodes.filter((node) => node.display !== "none")).toHaveLength(3);
     expect(filtered.edges.filter((edge) => edge.display !== "none")).toHaveLength(3);
@@ -297,7 +295,7 @@ test("shows only selected evidence with accurate support while keeping the downl
     expect(positions(filtered)).toEqual(originalPositions);
     const loop = filtered.edges.find((edge) => edge.source === edge.target)!;
     expect(loop.label).toContain("1");
-    await page.locator(".derived-graph").evaluate((element) => {
+    await page.locator(".abstract-model-graph").evaluate((element) => {
         const graph = (element as GraphContainer)._cyreg.cy;
         graph
             .edges()
@@ -305,13 +303,13 @@ test("shows only selected evidence with accurate support while keeping the downl
             .first()
             .emit("tap");
     });
-    await expect(page.locator(".derived-execution")).toHaveCount(1);
-    await expect(page.locator(".derived-execution")).toContainText("render-source-a");
-    await expect(page.locator(".derived-execution")).not.toContainText("render-source-b");
+    await expect(page.locator(".abstract-model-execution")).toHaveCount(1);
+    await expect(page.locator(".abstract-model-execution")).toContainText("render-source-a");
+    await expect(page.locator(".abstract-model-execution")).not.toContainText("render-source-b");
     await page.getByLabel("Show only selected source/run", { exact: true }).uncheck();
-    await expect(page.locator(".derived-node")).toHaveCount(5);
-    await expect(page.locator(".derived-edge")).toHaveCount(5);
-    await expect(page.locator(".derived-execution")).toHaveCount(2);
+    await expect(page.locator(".abstract-model-node")).toHaveCount(5);
+    await expect(page.locator(".abstract-model-edge")).toHaveCount(5);
+    await expect(page.locator(".abstract-model-execution")).toHaveCount(2);
     await page.getByLabel("Highlight source", { exact: true }).selectOption("all");
     const run = page.getByLabel("Highlight run", { exact: true });
     const sourceBRun = await run
@@ -321,10 +319,10 @@ test("shows only selected evidence with accurate support while keeping the downl
     expect(sourceBRun).not.toBeNull();
     await run.selectOption(sourceBRun!);
     await page.getByLabel("Show only selected source/run", { exact: true }).check();
-    await expect(page.locator(".derived-node")).toHaveCount(4);
-    await expect(page.locator(".derived-edge")).toHaveCount(3);
-    await expect(page.locator(".derived-execution")).toHaveCount(1);
-    await expect(page.locator(".derived-execution")).toContainText("render-source-b");
+    await expect(page.locator(".abstract-model-node")).toHaveCount(4);
+    await expect(page.locator(".abstract-model-edge")).toHaveCount(3);
+    await expect(page.locator(".abstract-model-execution")).toHaveCount(1);
+    await expect(page.locator(".abstract-model-execution")).toContainText("render-source-b");
     expect(positions(await snapshot(page))).toEqual(originalPositions);
     expect(await downloadModel(page)).toEqual(originalModel);
     await page.setViewportSize({ width: 390, height: 844 });
@@ -345,12 +343,12 @@ test("keeps a large graph window stable when selecting visible evidence and load
     expect(original.nodes).toHaveLength(500);
     expect(finitePositions(original)).toBe(true);
     const originalPositions = positions(original);
-    const downloaded = (await downloadModel(page)) as { model: DerivedModel };
+    const downloaded = (await downloadModel(page)) as { model: AbstractModel };
     const visibleNodes = new Set(original.nodes.map((node) => node.identity));
     const visibleEdges = new Set(original.edges.map((edge) => edge.identity));
     const nodes = downloaded.model.nodes.filter((node) => visibleNodes.has(node.id));
     for (const node of nodes.slice(0, 2)) {
-        const button = page.locator(".derived-node").filter({
+        const button = page.locator(".abstract-model-node").filter({
             has: page.getByText(node.label, { exact: true }),
         });
         await button.click();
@@ -363,7 +361,7 @@ test("keeps a large graph window stable when selecting visible evidence and load
     const source = downloaded.model.nodes.find((node) => node.id === edge.source)!;
     const target = downloaded.model.nodes.find((node) => node.id === edge.target)!;
     const endpoints = source.label + " \u2192 " + target.label;
-    const transition = page.locator(".derived-edge").filter({
+    const transition = page.locator(".abstract-model-edge").filter({
         has: page.getByText(endpoints, { exact: true }),
     });
     await transition.click();
@@ -372,7 +370,7 @@ test("keeps a large graph window stable when selecting visible evidence and load
     await transition.click();
     expect(positions(await snapshot(page))).toEqual(originalPositions);
     const outside = downloaded.model.nodes.find((node) => !visibleNodes.has(node.id))!;
-    const outsideButton = page.locator(".derived-node").filter({
+    const outsideButton = page.locator(".abstract-model-node").filter({
         has: page.getByText(outside.label, { exact: true }),
     });
     for (let batch = 0; batch < 11 && (await outsideButton.count()) === 0; batch++) {

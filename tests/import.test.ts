@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, test, vi } from "vitest";
-import { Replay } from "../src/evidence/reconstructed-evidence";
+import { EvidenceReconstructor } from "../src/evidence/reconstructed-evidence";
 import { manifestSchema } from "../src/evidence/schema";
 import { importDirectory, lines, type InputFile } from "../src/evidence/import";
 import { imageDimensions } from "../src/evidence/images";
@@ -152,25 +152,25 @@ describe("file import and safety", () => {
         await expect(importDirectory(changedLog(altered))).rejects.toThrow("evidence.jsonl:4");
     });
 
-    test("rejects cyclic hierarchy before changing the replayed evidence", () => {
-        const replay = new Replay(manifest);
-        replay.apply(events[0]);
-        replay.apply(events[1]);
-        replay.apply(events[2]);
+    test("rejects cyclic hierarchy before changing the reconstructed evidence", () => {
+        const reconstructor = new EvidenceReconstructor(manifest);
+        reconstructor.apply(events[0]);
+        reconstructor.apply(events[1]);
+        reconstructor.apply(events[2]);
         const altered = structuredClone(events[3]);
         altered.event.data.recorded_state.widgets[0].parent =
             altered.event.data.recorded_state.widgets[0].id;
-        expect(() => replay.apply(altered)).toThrow("cycle");
-        expect(replay.evidence.observations.size).toBe(0);
+        expect(() => reconstructor.apply(altered)).toThrow("cycle");
+        expect(reconstructor.evidence.observations.size).toBe(0);
     });
 
     test("rejects conflicting repeated event identities", () => {
-        const replay = new Replay(manifest);
-        replay.apply(events[0]);
+        const reconstructor = new EvidenceReconstructor(manifest);
+        reconstructor.apply(events[0]);
         const altered = structuredClone(events[0]);
         altered.event.data.producer = "changed";
-        expect(() => replay.apply(altered)).toThrow("conflicting");
-        expect(replay.evidence.eventCount).toBe(1);
+        expect(() => reconstructor.apply(altered)).toThrow("conflicting");
+        expect(reconstructor.evidence.eventCount).toBe(1);
     });
 
     test("bounds nested JSON and image dimensions", () => {

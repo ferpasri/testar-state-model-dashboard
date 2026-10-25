@@ -20,7 +20,7 @@ export function Properties({ values }: { values: Record<string, unknown> }) {
     );
 }
 
-export function Evaluation({
+export function OracleResultView({
     data,
     runFinished,
     runReason,
@@ -66,7 +66,9 @@ export function Evaluation({
                         )}
                 </div>
             )}
-            <p className="muted">Target: {data.oracle_target.target_type.replaceAll("_", " ")}</p>
+            <p className="muted">
+                Oracle target: {data.oracle_target.target_type.replaceAll("_", " ")}
+            </p>
             <Properties
                 values={{
                     Oracle: data.oracle,

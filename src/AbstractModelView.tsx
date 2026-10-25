@@ -1,24 +1,24 @@
 import { lazy, Suspense, useCallback, useMemo, useState } from "react";
 import type {
-    DerivedModel,
+    AbstractModel,
     EvidenceReference,
     ExecutionReference,
-    MatchingPreview,
+    AbstractionPreview,
 } from "./analysis";
 import { runKey } from "./analysis";
-import { derivedWindow, evidenceLabel } from "./derived-presentation";
-import { DerivedInspector } from "./DerivedInspector";
-import { filterDerivedModel } from "./derived-filter";
-import { DEFAULT_RENDERING, DerivedRenderControls } from "./DerivedRenderControls";
+import { abstractModelWindow, evidenceLabel } from "./abstract-model-presentation";
+import { AbstractModelInspector } from "./AbstractModelInspector";
+import { filterAbstractModel } from "./abstract-model-filter";
+import { DEFAULT_RENDERING, AbstractModelRenderControls } from "./AbstractModelRenderControls";
 import type { ImportedSource } from "./evidence/import";
 
-const DerivedGraph = lazy(() =>
-    import("./DerivedGraph").then((module) => ({ default: module.DerivedGraph })),
+const AbstractModelGraph = lazy(() =>
+    import("./AbstractModelGraph").then((module) => ({ default: module.AbstractModelGraph })),
 );
 
 interface Props {
-    model: DerivedModel;
-    preview: MatchingPreview;
+    model: AbstractModel;
+    preview: AbstractionPreview;
     sources: ImportedSource[];
     active: boolean;
     onOpenObservation: (reference: EvidenceReference) => void;
@@ -26,7 +26,7 @@ interface Props {
     onInspectGroup: (id: string) => void;
 }
 
-export function DerivedModelView({
+export function AbstractModelView({
     model,
     preview,
     sources,
@@ -47,7 +47,7 @@ export function DerivedModelView({
     const [edgeLimit, setEdgeLimit] = useState(50);
     const [unlinkedLimit, setUnlinkedLimit] = useState(20);
     const scopedModel = useMemo(
-        () => filterDerivedModel(model, { source: sourceFilter, run: runFilter }),
+        () => filterAbstractModel(model, { source: sourceFilter, run: runFilter }),
         [model, sourceFilter, runFilter],
     );
     const highlighting = sourceFilter !== "all" || runFilter !== "all";
@@ -58,7 +58,7 @@ export function DerivedModelView({
     );
     // Keep the graph window independent of rendering filters so positions remain comparable.
     const window = useMemo(
-        () => derivedWindow(model.nodes, model.edges, focus.node, focus.edge),
+        () => abstractModelWindow(model.nodes, model.edges, focus.node, focus.edge),
         [model, focus],
     );
     const windowNodeIds = useMemo(
@@ -112,19 +112,19 @@ export function DerivedModelView({
     );
 
     return (
-        <section className="derived-workspace" aria-label="Derived model">
+        <section className="abstract-model-workspace" aria-label="Abstract model">
             <p className="muted">
                 Abstraction rules: "{preview.definition.name}". Model paths may combine different
                 test runs; highlight a run to inspect its recorded evidence.
             </p>
-            <div className="derived-summary">
+            <div className="abstract-model-summary">
                 <span>{model.nodes.length} states</span>
                 <span>{model.counts.completedExecutions} completed executions</span>
                 <span>{model.counts.unlinkedExecutions} executions without a connected result</span>
                 <span>{model.counts.unmatchedNodes} unmatched observations</span>
             </div>
             <div className="model-tools">
-                <div className="derived-controls matching-panel">
+                <div className="abstract-model-controls abstraction-panel">
                     <label className="search-label">
                         Highlight source
                         <select
@@ -201,13 +201,13 @@ export function DerivedModelView({
                 </div>
                 <details className="render-options">
                     <summary>Rendering options</summary>
-                    <DerivedRenderControls options={options} onChange={setOptions} />
+                    <AbstractModelRenderControls options={options} onChange={setOptions} />
                 </details>
             </div>
             {showOnlySelected && highlighting && (
-                <p className="derived-scope-summary notice">
+                <p className="abstract-model-scope-summary notice">
                     Selected source/run: {displayModel.nodes.length} states,{" "}
-                    {displayModel.counts.observations} visits,{" "}
+                    {displayModel.counts.observations} observations,{" "}
                     {displayModel.counts.completedExecutions} completed executions. Counts and
                     inspection below use this selection; model downloads retain the complete model.
                 </p>
@@ -219,10 +219,12 @@ export function DerivedModelView({
                     the lists to bring its endpoints into view.
                 </p>
             )}
-            <div className="derived-layout">
-                <div className="derived-main">
-                    <Suspense fallback={<p className="notice">Preparing derived graph...</p>}>
-                        <DerivedGraph
+            <div className="abstract-model-layout">
+                <div className="abstract-model-main">
+                    <Suspense
+                        fallback={<p className="notice">Preparing abstract model graph...</p>}
+                    >
+                        <AbstractModelGraph
                             nodes={window.nodes}
                             edges={window.edges}
                             displayModel={displayModel}
@@ -239,14 +241,14 @@ export function DerivedModelView({
                             onSelectEdge={selectEdge}
                         />
                     </Suspense>
-                    <div className="derived-lists">
-                        <section className="matching-panel">
+                    <div className="abstract-model-lists">
+                        <section className="abstraction-panel">
                             <h3>States ({displayModel.nodes.length})</h3>
-                            <div className="derived-list">
+                            <div className="abstract-model-list">
                                 {displayModel.nodes.slice(0, nodeLimit).map((item) => (
                                     <button
                                         className={
-                                            "derived-node" +
+                                            "abstract-model-node" +
                                             (highlighting && !highlighted.nodes.has(item.id)
                                                 ? " not-highlighted"
                                                 : "")
@@ -263,7 +265,7 @@ export function DerivedModelView({
                                     >
                                         <strong>{item.label}</strong>
                                         <span>
-                                            {item.members.length} visits
+                                            {item.members.length} observations
                                             {item.unmatchedReason ? " / unmatched" : ""}
                                         </span>
                                     </button>
@@ -278,13 +280,13 @@ export function DerivedModelView({
                                 </button>
                             )}
                         </section>
-                        <section className="matching-panel">
+                        <section className="abstraction-panel">
                             <h3>Transitions and order links ({edges.length})</h3>
-                            <div className="derived-list">
+                            <div className="abstract-model-list">
                                 {edges.slice(0, edgeLimit).map((edge) => (
                                     <button
                                         className={
-                                            "derived-edge" +
+                                            "abstract-model-edge" +
                                             (highlighting && !highlighted.edges.has(edge.id)
                                                 ? " not-highlighted"
                                                 : "")
@@ -324,14 +326,14 @@ export function DerivedModelView({
                         </section>
                     </div>
                     {displayModel.unlinkedExecutions.length > 0 && (
-                        <details className="matching-panel derived-unlinked">
+                        <details className="abstraction-panel abstract-model-unlinked">
                             <summary>
                                 Executions without a connected result (
                                 {displayModel.unlinkedExecutions.length})
                             </summary>
                             {displayModel.unlinkedExecutions.slice(0, unlinkedLimit).map((item) => (
                                 <article
-                                    className="derived-execution"
+                                    className="abstract-model-execution"
                                     key={JSON.stringify(item.reference)}
                                 >
                                     <strong>{evidenceLabel(sources, item.reference)}</strong>
@@ -357,7 +359,7 @@ export function DerivedModelView({
                         </details>
                     )}
                 </div>
-                <DerivedInspector
+                <AbstractModelInspector
                     node={node}
                     edge={selected}
                     model={displayModel}

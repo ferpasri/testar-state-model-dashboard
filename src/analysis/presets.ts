@@ -1,4 +1,4 @@
-import type { Field, MatchingDefinition } from "./types";
+import type { Field, AbstractionRules } from "./types";
 
 const address: Field = {
     name: "address",
@@ -20,7 +20,7 @@ function pageFields(): Field[] {
 export const DEFAULT_PRESETS: Array<{
     name: string;
     description: string;
-    definition: MatchingDefinition;
+    definition: AbstractionRules;
 }> = [
     {
         name: "Page address and title",
@@ -36,7 +36,7 @@ export const DEFAULT_PRESETS: Array<{
     {
         name: "Page address",
         description:
-            "Compare captured page addresses, ignoring fragments. Visits to the same address may still show different content.",
+            "Compare captured page addresses, ignoring fragments. Observations to the same address may still show different content.",
         definition: {
             version: 1,
             name: "Page address",

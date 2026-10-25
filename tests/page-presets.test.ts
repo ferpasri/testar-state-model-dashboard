@@ -1,17 +1,17 @@
 import { describe, expect, it } from "vitest";
 import {
-    buildDerivedModel,
+    buildAbstractModel,
     DEFAULT_PRESETS,
-    previewMatching,
+    previewAbstraction,
     runKey,
     type AnalysisSource,
 } from "../src/analysis";
-import { groupLabel } from "../src/analysis/derivedLabels";
+import { groupLabel } from "../src/analysis/abstractModelLabels";
 import type { Observation } from "../src/evidence/schema";
 
 function source(id: string, properties: Record<string, unknown>): AnalysisSource {
     const observation: Observation = {
-        id: "visit",
+        id: "observation",
         test_sequence: "run",
         observation_index: 1,
         timestamp_micros: 1,
@@ -40,7 +40,7 @@ function source(id: string, properties: Record<string, unknown>): AnalysisSource
                     },
                 ],
             ]),
-            observations: new Map([["visit", observation]]),
+            observations: new Map([["observation", observation]]),
             recordedStates: new Map([["state", observation.recorded_state]]),
             sequences: new Map(
                 [...new Set([observation].map((item) => item.test_sequence))].map((id) => [
@@ -65,7 +65,7 @@ function source(id: string, properties: Record<string, unknown>): AnalysisSource
 
 async function preview(properties: Record<string, unknown>[], preset = DEFAULT_PRESETS[0]) {
     const sources = properties.map((values, index) => source("source-" + index, values));
-    const result = await previewMatching(
+    const result = await previewAbstraction(
         sources,
         preset.definition,
         sources.map((item) => runKey(item.id, "run")),
@@ -139,13 +139,15 @@ describe("page matching defaults", () => {
         ];
         const { result, sources } = await preview(properties, custom);
         expect(result.groups).toHaveLength(1);
-        const evidence = buildDerivedModel(result, sources);
+        const evidence = buildAbstractModel(result, sources);
         expect(evidence.nodes[0].label).toContain("Account");
         expect(evidence.nodes[0].label.indexOf("Account")).toBeLessThan(
             evidence.nodes[0].label.indexOf("address"),
         );
         expect(
-            sources[0].evidence.observations.get("visit")!.recorded_state.properties["ui.url"],
+            sources[0].evidence.observations.get("observation")!.recorded_state.properties[
+                "ui.url"
+            ],
         ).toBe(url + ";session=one");
     });
 

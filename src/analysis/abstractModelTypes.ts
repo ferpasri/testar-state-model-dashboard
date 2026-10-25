@@ -7,7 +7,7 @@ export interface ExecutionReference {
     execution: string;
 }
 
-export interface DerivedNode {
+export interface AbstractModelNode {
     id: string;
     label: string;
     groupId?: string;
@@ -15,20 +15,20 @@ export interface DerivedNode {
     unmatchedReason?: string;
 }
 
-export interface DerivedOrderLink {
+export interface AbstractModelOrderLink {
     source: EvidenceReference;
     target: EvidenceReference;
 }
 
-export interface DerivedEdge {
+export interface AbstractModelEdge {
     id: string;
     kind: "execution" | "observation_order";
     source: string;
     target: string;
     label: string;
-    actionKind?: string;
+    actionType?: string;
     executions: ExecutionReference[];
-    orderLinks: DerivedOrderLink[];
+    orderLinks: AbstractModelOrderLink[];
 }
 
 export interface UnlinkedExecution {
@@ -38,9 +38,9 @@ export interface UnlinkedExecution {
     status: RecordedExecution["status"];
 }
 
-export interface DerivedModel {
-    nodes: DerivedNode[];
-    edges: DerivedEdge[];
+export interface AbstractModel {
+    nodes: AbstractModelNode[];
+    edges: AbstractModelEdge[];
     unlinkedExecutions: UnlinkedExecution[];
     counts: {
         matchedNodes: number;

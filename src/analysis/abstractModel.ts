@@ -1,7 +1,7 @@
 import { testRunForSequence } from "../evidence/reconstructed-evidence";
 import { canonical } from "../evidence/common";
 import type { RecordedExecution } from "../evidence/reconstructed-evidence";
-import { observationGaps } from "../evidence/trace";
+import { observationOrderLinks } from "../evidence/trace";
 import {
     buildEvidenceIndex,
     compare,
@@ -9,31 +9,31 @@ import {
     runKey,
     type EvidenceIndex,
 } from "./evidenceIndex";
-import { edgeLabel, groupLabel } from "./derivedLabels";
+import { edgeLabel, groupLabel } from "./abstractModelLabels";
 import type {
-    DerivedEdge,
-    DerivedModel,
-    DerivedNode,
+    AbstractModelEdge,
+    AbstractModel,
+    AbstractModelNode,
     ExecutionReference,
     UnlinkedExecution,
-} from "./derivedTypes";
-import type { AnalysisSource, EvidenceReference, MatchingPreview } from "./types";
+} from "./abstractModelTypes";
+import type { AnalysisSource, EvidenceReference, AbstractionPreview } from "./types";
 
-export function buildDerivedModel(
-    preview: MatchingPreview,
+export function buildAbstractModel(
+    preview: AbstractionPreview,
     sources: AnalysisSource[],
-): DerivedModel {
+): AbstractModel {
     const index = scopedIndex(preview, sources);
-    const nodes: DerivedNode[] = [];
+    const nodes: AbstractModelNode[] = [];
     const nodeByObservation = new Map<string, string>();
     const nodeIds = new Set<string>();
     for (const [position, group] of [...preview.groups]
         .sort((left, right) => compare(left.id, right.id))
         .entries()) {
         if (group.members.length === 0) {
-            throw new Error("A matching group must contain an original observation.");
+            throw new Error("An observation group must contain an original observation.");
         }
-        const node: DerivedNode = {
+        const node: AbstractModelNode = {
             id: group.id,
             label: groupLabel(group, position),
             groupId: group.id,
@@ -56,7 +56,7 @@ export function buildDerivedModel(
                 members: [{ ...indexed.reference }],
                 unmatchedReason:
                     unmatched.get(key) ??
-                    "This observation is not represented in the matching preview.",
+                    "This observation is not represented in the abstraction preview.",
             },
             index,
             nodes,
@@ -64,7 +64,7 @@ export function buildDerivedModel(
             nodeIds,
         );
     }
-    const edges = new Map<string, DerivedEdge>();
+    const edges = new Map<string, AbstractModelEdge>();
     const unlinkedExecutions: UnlinkedExecution[] = [];
     for (const { source, execution } of index.executions.values()) {
         connectExecution(source, execution, index, nodeByObservation, edges, unlinkedExecutions);
@@ -77,7 +77,7 @@ export function buildDerivedModel(
         edge.orderLinks.sort((left, right) => compare(canonical(left), canonical(right)));
         edge.label =
             edge.kind === "execution"
-                ? edgeLabel(edge.actionKind!, edge.executions.length)
+                ? edgeLabel(edge.actionType!, edge.executions.length)
                 : edgeLabel("Observation order", edge.orderLinks.length);
     }
     unlinkedExecutions.sort((left, right) =>
@@ -103,25 +103,25 @@ export function buildDerivedModel(
     };
 }
 
-function scopedIndex(preview: MatchingPreview, sources: AnalysisSource[]): EvidenceIndex {
+function scopedIndex(preview: AbstractionPreview, sources: AnalysisSource[]): EvidenceIndex {
     const selectedSources: AnalysisSource[] = [];
     const sourceIds = new Set<string>();
     for (const requested of preview.inputScope.sources) {
         if (sourceIds.has(requested.id)) {
-            throw new Error("The matching preview repeats a source identity.");
+            throw new Error("The abstraction preview repeats a source identity.");
         }
         sourceIds.add(requested.id);
         const matches = sources.filter((source) => source.id === requested.id);
         if (matches.length !== 1 || matches[0].fingerprint !== requested.fingerprint) {
             throw new Error(
-                "The original evidence for this matching preview is missing or has changed.",
+                "The original evidence for this abstraction preview is missing or has changed.",
             );
         }
         selectedSources.push(matches[0]);
     }
     const selectedRuns = preview.inputScope.runs.map((reference) => {
         if (!sourceIds.has(reference.source)) {
-            throw new Error("The matching preview refers to a run outside its source scope.");
+            throw new Error("The abstraction preview refers to a run outside its source scope.");
         }
         return runKey(reference.source, reference.run);
     });
@@ -129,25 +129,25 @@ function scopedIndex(preview: MatchingPreview, sources: AnalysisSource[]): Evide
 }
 
 function addNode(
-    node: DerivedNode,
+    node: AbstractModelNode,
     index: EvidenceIndex,
-    nodes: DerivedNode[],
+    nodes: AbstractModelNode[],
     nodeByObservation: Map<string, string>,
     nodeIds: Set<string>,
 ): void {
     if (nodeIds.has(node.id)) {
-        throw new Error("The matching preview repeats a derived node identity.");
+        throw new Error("The abstraction preview repeats a abstract state identity.");
     }
     nodeIds.add(node.id);
     for (const reference of node.members) {
         const key = referenceKey(reference);
         if (reference.widget !== undefined || !index.observations.has(key)) {
             throw new Error(
-                "A matching group refers to an observation outside the selected evidence.",
+                "An observation group refers to an observation outside the selected evidence.",
             );
         }
         if (nodeByObservation.has(key)) {
-            throw new Error("An observation belongs to more than one derived node.");
+            throw new Error("An observation belongs to more than one abstract state.");
         }
         nodeByObservation.set(key, node.id);
     }
@@ -160,7 +160,7 @@ function connectExecution(
     execution: RecordedExecution,
     index: EvidenceIndex,
     nodeByObservation: Map<string, string>,
-    edges: Map<string, DerivedEdge>,
+    edges: Map<string, AbstractModelEdge>,
     unlinked: UnlinkedExecution[],
 ): void {
     const data = execution.execution;
@@ -213,7 +213,7 @@ function connectExecution(
             source: sourceNode,
             target: targetNode,
             label: "",
-            actionKind: action.action_type,
+            actionType: action.action_type,
             executions: [],
             orderLinks: [],
         };
@@ -225,15 +225,15 @@ function connectExecution(
 function connectObservationOrder(
     index: EvidenceIndex,
     nodeByObservation: Map<string, string>,
-    edges: Map<string, DerivedEdge>,
+    edges: Map<string, AbstractModelEdge>,
 ): void {
     for (const source of index.sources.values()) {
         const observations = [...index.observations.values()]
             .filter((item) => item.source.id === source.id)
             .map((item) => item.observation);
-        for (const gap of observationGaps(source.evidence, observations)) {
-            const origin = { source: source.id, run: gap.run, observation: gap.source };
-            const result = { source: source.id, run: gap.run, observation: gap.target };
+        for (const orderLink of observationOrderLinks(source.evidence, observations)) {
+            const origin = { source: source.id, run: orderLink.run, observation: orderLink.source };
+            const result = { source: source.id, run: orderLink.run, observation: orderLink.target };
             const sourceNode = nodeByObservation.get(referenceKey(origin));
             const targetNode = nodeByObservation.get(referenceKey(result));
             if (!sourceNode || !targetNode) {

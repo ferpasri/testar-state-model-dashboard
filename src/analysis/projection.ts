@@ -4,8 +4,8 @@ import type { Observation } from "../evidence/schema";
 import { matchesPredicate, projectFields } from "./fields";
 import { compare, type IndexedObservation } from "./evidenceIndex";
 import {
-    MATCHING_LIMITS,
-    type MatchingDefinition,
+    ABSTRACTION_LIMITS,
+    type AbstractionRules,
     type ObservationProjection,
     type ProjectedWidget,
 } from "./types";
@@ -18,7 +18,7 @@ interface WidgetNode {
 
 export function projectObservation(
     indexed: IndexedObservation,
-    definition: MatchingDefinition,
+    definition: AbstractionRules,
     account: (value: unknown) => void = () => {},
 ): ObservationProjection {
     const { observation, reference } = indexed;
@@ -31,7 +31,7 @@ export function projectObservation(
     }
     const member = {
         reference,
-        sequence: observation.observation_index,
+        observationIndex: observation.observation_index,
         capture: observation.recorded_state.capture,
         stateFields: state.explanations,
         includedWidgets: 0,
@@ -140,7 +140,7 @@ function makeTree(widgets: Observation["recorded_state"]["widgets"]): WidgetNode
         .map((node) => ({ node, depth: 1 }));
     while (pending.length > 0) {
         const { node, depth } = pending.pop()!;
-        if (depth > MATCHING_LIMITS.hierarchyDepth) {
+        if (depth > ABSTRACTION_LIMITS.hierarchyDepth) {
             throw new Error("The widget hierarchy exceeds the supported depth of 128.");
         }
         visited.add(node);

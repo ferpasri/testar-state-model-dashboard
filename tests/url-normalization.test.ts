@@ -1,17 +1,17 @@
 import { describe, expect, it } from "vitest";
 import {
     INTERPRETER_VERSION,
-    MATCHING_LIMITS,
-    parseDefinition,
-    previewMatching,
+    ABSTRACTION_LIMITS,
+    parseAbstractionRules,
+    previewAbstraction,
     runKey,
     type AnalysisSource,
-    type MatchingDefinition,
+    type AbstractionRules,
     type Transform,
 } from "../src/analysis";
 import { projectFields } from "../src/analysis/fields";
 import { canonical } from "../src/evidence/common";
-import { Replay } from "../src/evidence/reconstructed-evidence";
+import { EvidenceReconstructor } from "../src/evidence/reconstructed-evidence";
 
 type UrlOptions = Omit<Extract<Transform, { op: "url" }>, "op">;
 
@@ -21,7 +21,7 @@ function normalize(value: string, options: UrlOptions = {}): string {
     ]).explanations[0].value as string;
 }
 
-function definition(options: UrlOptions = {}): MatchingDefinition {
+function definition(options: UrlOptions = {}): AbstractionRules {
     return {
         version: 1,
         name: "Address comparison",
@@ -38,8 +38,8 @@ function definition(options: UrlOptions = {}): MatchingDefinition {
 }
 
 function source(id: string, address: string): AnalysisSource {
-    const replay = new Replay({ schema_version: 3, evidence_id: "evidence" });
-    replay.apply({
+    const reconstructor = new EvidenceReconstructor({ schema_version: 3, evidence_id: "evidence" });
+    reconstructor.apply({
         schema_version: 3,
         id: "started",
         event: {
@@ -47,7 +47,7 @@ function source(id: string, address: string): AnalysisSource {
             data: { id: "run", producer: "generic", source_run: "run", properties: {} },
         },
     });
-    replay.apply({
+    reconstructor.apply({
         schema_version: 3,
         id: "sequence-started",
         event: {
@@ -61,7 +61,7 @@ function source(id: string, address: string): AnalysisSource {
             },
         },
     });
-    replay.apply({
+    reconstructor.apply({
         schema_version: 3,
         id: "captured",
         event: {
@@ -83,7 +83,7 @@ function source(id: string, address: string): AnalysisSource {
             },
         },
     });
-    return { id, label: id, fingerprint: "fingerprint-" + id, evidence: replay.evidence };
+    return { id, label: id, fingerprint: "fingerprint-" + id, evidence: reconstructor.evidence };
 }
 
 describe("explicit URL path parameter normalization", () => {
@@ -203,7 +203,7 @@ describe("explicit URL path parameter normalization", () => {
 
     it("validates selected names and keeps the DSL language version unchanged", () => {
         const valid = definition({ remove_path_parameters: ["session", "token"] });
-        expect(parseDefinition(canonical(valid))).toEqual(valid);
+        expect(parseAbstractionRules(canonical(valid))).toEqual(valid);
         expect(valid.version).toBe(1);
         expect(INTERPRETER_VERSION).toBe("1.1.0");
         for (const names of [
@@ -214,15 +214,20 @@ describe("explicit URL path parameter normalization", () => {
             "session",
         ]) {
             const invalid = definition({ remove_path_parameters: names as string[] });
-            expect(() => parseDefinition(canonical(invalid))).toThrow("remove_path_parameters");
+            expect(() => parseAbstractionRules(canonical(invalid))).toThrow(
+                "remove_path_parameters",
+            );
         }
     });
 
     it("keeps existing URL input size and absolute-address validation", () => {
         expect(() =>
-            normalize("https://example.test/" + "a".repeat(MATCHING_LIMITS.normalizedValueBytes), {
-                remove_path_parameters: ["session"],
-            }),
+            normalize(
+                "https://example.test/" + "a".repeat(ABSTRACTION_LIMITS.normalizedValueBytes),
+                {
+                    remove_path_parameters: ["session"],
+                },
+            ),
         ).toThrow("1 MiB");
         expect(() =>
             normalize("/relative/a;session=one", {
@@ -237,9 +242,9 @@ describe("explicit URL path parameter normalization", () => {
             source("second", "https://example.test/login;session=two"),
         ];
         const selected = sources.map((item) => runKey(item.id, "run"));
-        const exact = await previewMatching(sources, definition(), selected);
+        const exact = await previewAbstraction(sources, definition(), selected);
         expect(exact.groups).toHaveLength(2);
-        const normalized = await previewMatching(
+        const normalized = await previewAbstraction(
             sources,
             definition({
                 remove_path_parameters: ["session"],

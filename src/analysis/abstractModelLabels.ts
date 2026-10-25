@@ -1,6 +1,6 @@
-import type { MatchingGroup } from "./types";
+import type { ObservationGroup } from "./types";
 
-export function groupLabel(group: MatchingGroup, index: number): string {
+export function groupLabel(group: ObservationGroup, index: number): string {
     const fields = group.members[0]?.stateFields.filter((field) => !field.missing) ?? [];
     const title = fields.find(
         (field) =>

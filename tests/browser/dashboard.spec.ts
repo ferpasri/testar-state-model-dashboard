@@ -22,7 +22,7 @@ test("imports a trace and inspects its executed actions and evaluations", async 
         await page.getByRole("button", { name: "Next observation" }).click();
     }
     await expect(page.getByRole("heading", { name: "Observation 11", exact: true })).toBeVisible();
-    await page.getByRole("button", { name: "Evaluations", exact: true }).click();
+    await page.getByRole("button", { name: "Oracle results", exact: true }).click();
     await expect(page.locator(".evaluation .badge.failed")).toHaveText("failed");
     await page.getByRole("button", { name: "Executions", exact: true }).click();
     await expect(page.locator(".evaluation .badge.completed")).toBeVisible();
@@ -177,7 +177,7 @@ test("explains a recorded pending evaluation after its run has ended", async ({ 
     await page.goto("/");
     await page.getByLabel("Evidence directory").setInputFiles(broader);
     await expect(page.getByRole("heading", { name: "Observation 1", exact: true })).toBeVisible();
-    await page.getByRole("button", { name: "Evaluations", exact: true }).click();
+    await page.getByRole("button", { name: "Oracle results", exact: true }).click();
     const result = page.locator(".evaluation").filter({ has: page.locator(".badge.pending") });
     await expect(result).toContainText("The test oracle had not reached a definite result");
     await expect(result).toContainText("The run has ended.");

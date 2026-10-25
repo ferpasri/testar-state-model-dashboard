@@ -16,7 +16,7 @@ export const DEFAULT_RENDERING: RenderingOptions = {
     dimOtherEvidence: 82,
 };
 
-export function DerivedRenderControls({
+export function AbstractModelRenderControls({
     options,
     onChange,
 }: {
@@ -24,7 +24,7 @@ export function DerivedRenderControls({
     onChange: (options: RenderingOptions) => void;
 }) {
     return (
-        <fieldset className="derived-render-controls matching-panel">
+        <fieldset className="abstract-model-render-controls abstraction-panel">
             <legend>Rendering options</legend>
             <label className="search-label">
                 Model layout
@@ -40,7 +40,7 @@ export function DerivedRenderControls({
                     <option value="circular">Circular</option>
                 </select>
             </label>
-            <div className="derived-display-options">
+            <div className="abstract-model-display-options">
                 <label className="compact-toggle">
                     <input
                         type="checkbox"
@@ -72,7 +72,7 @@ export function DerivedRenderControls({
                     Show execution counts
                 </label>
             </div>
-            <label className="search-label derived-dimming">
+            <label className="search-label abstract-model-dimming">
                 Dim other evidence <output>{options.dimOtherEvidence}%</output>
                 <input
                     aria-label="Dim other evidence"

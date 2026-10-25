@@ -1,7 +1,7 @@
 import { canonical } from "../evidence/common";
-import { MATCHING_LIMITS } from "./types";
+import { ABSTRACTION_LIMITS } from "./types";
 
-export class MatchingLimitError extends Error {}
+export class AbstractionLimitError extends Error {}
 
 export class ComparisonBudget {
     private bytes = 0;
@@ -28,8 +28,8 @@ export class ComparisonBudget {
 
     private add(bytes: number): void {
         this.bytes += bytes;
-        if (this.bytes > MATCHING_LIMITS.comparisonBytes) {
-            throw new MatchingLimitError(
+        if (this.bytes > ABSTRACTION_LIMITS.comparisonBytes) {
+            throw new AbstractionLimitError(
                 "Comparison data exceeds 32 MiB. Select fewer runs or fewer properties.",
             );
         }

@@ -10,11 +10,11 @@ import {
 } from "react";
 import { Details } from "./Details";
 import { ExecutionDetails } from "./ExecutionDetails";
-import { ObservationGapDetails } from "./ObservationGapDetails";
-import { observationGaps } from "./evidence/trace";
+import { ObservationOrderLinkDetails } from "./ObservationOrderLinkDetails";
+import { observationOrderLinks } from "./evidence/trace";
 import type { EvidenceReference, ExecutionReference } from "./analysis";
-const MatchingPreview = lazy(() =>
-    import("./MatchingPreview").then((module) => ({ default: module.MatchingPreview })),
+const AbstractionPreview = lazy(() =>
+    import("./AbstractionPreview").then((module) => ({ default: module.AbstractionPreview })),
 );
 const Graph = lazy(() => import("./Graph").then((module) => ({ default: module.Graph })));
 import type { ImportedSource, Progress } from "./evidence/import";
@@ -23,14 +23,14 @@ import { version } from "../package.json";
 
 export function App() {
     const [sources, setSources] = useState<ImportedSource[]>([]);
-    const [view, setView] = useState<"traces" | "matching">("traces");
-    const [matchingOpened, setMatchingOpened] = useState(false);
+    const [view, setView] = useState<"traces" | "construction">("traces");
+    const [abstractionOpened, setAbstractionOpened] = useState(false);
     const [sourceId, setSourceId] = useState("");
     const [runId, setRunId] = useState("");
     const [sequenceId, setSequenceId] = useState("");
     const [observationId, setObservationId] = useState("");
     const [executionId, setExecutionId] = useState("");
-    const [gapId, setGapId] = useState("");
+    const [orderLinkId, setOrderLinkId] = useState("");
     const [error, setError] = useState("");
     const [busy, setBusy] = useState(false);
     const [progress, setProgress] = useState<Progress | null>(null);
@@ -63,21 +63,21 @@ export function App() {
     const selectObservation = useCallback((id: string) => {
         setObservationId(id);
         setExecutionId("");
-        setGapId("");
+        setOrderLinkId("");
     }, []);
     const selectExecution = useCallback((id: string) => {
         setExecutionId(id);
-        setGapId("");
+        setOrderLinkId("");
     }, []);
-    const selectGap = useCallback((id: string) => {
-        setGapId(id);
+    const selectOrderLink = useCallback((id: string) => {
+        setOrderLinkId(id);
         setExecutionId("");
     }, []);
-    const gaps = useMemo(
-        () => (source ? observationGaps(source.evidence, observations) : []),
+    const orderLinks = useMemo(
+        () => (source ? observationOrderLinks(source.evidence, observations) : []),
         [source, observations],
     );
-    const selectedGap = gaps.find((gap) => gap.id === gapId);
+    const selectedOrderLink = orderLinks.find((orderLink) => orderLink.id === orderLinkId);
     const selectedIndex = Math.max(
         0,
         observations.findIndex((item) => item.id === observation?.id),
@@ -107,7 +107,7 @@ export function App() {
         setSequenceId("");
         setObservationId("");
         setExecutionId("");
-        setGapId("");
+        setOrderLinkId("");
     }
     function openOriginalObservation(reference: EvidenceReference) {
         const originalSource = sources.find((item) => item.id === reference.source);
@@ -211,7 +211,7 @@ export function App() {
             setRunId("");
             setObservationId("");
             setExecutionId("");
-            setGapId("");
+            setOrderLinkId("");
         }
     }
     const directoryAttributes = {
@@ -234,10 +234,10 @@ export function App() {
                             Trace inspection
                         </button>
                         <button
-                            aria-pressed={view === "matching"}
+                            aria-pressed={view === "construction"}
                             onClick={() => {
-                                setMatchingOpened(true);
-                                setView("matching");
+                                setAbstractionOpened(true);
+                                setView("construction");
                             }}
                         >
                             Construct model
@@ -333,7 +333,9 @@ export function App() {
                 </main>
             ) : (
                 <main
-                    className={view === "matching" ? "workspace constructing-model" : "workspace"}
+                    className={
+                        view === "construction" ? "workspace constructing-model" : "workspace"
+                    }
                 >
                     <aside className="sidebar" hidden={view !== "traces"}>
                         <div className="sidebar-title">
@@ -346,15 +348,15 @@ export function App() {
                         <div className="workspace-stats">
                             <div>
                                 <strong>{totals.observations}</strong>
-                                <span>visits</span>
+                                <span>observations</span>
                             </div>
                             <div>
                                 <strong>{totals.executions}</strong>
-                                <span>actions</span>
+                                <span>action executions</span>
                             </div>
                             <div>
                                 <strong>{totals.oracleResults}</strong>
-                                <span>evaluations</span>
+                                <span>oracle results</span>
                             </div>
                         </div>
 
@@ -405,18 +407,20 @@ export function App() {
                             ))}
                         </div>
                         <p className="sidebar-note">
-                            Imported sources remain separate. Select a run to follow its concrete
+                            Imported sources remain separate. Select a run to follow its recorded
                             execution history.
                         </p>
                     </aside>
-                    {matchingOpened && (
-                        <div className="comparison-workspace" hidden={view !== "matching"}>
+                    {abstractionOpened && (
+                        <div className="comparison-workspace" hidden={view !== "construction"}>
                             <Suspense
-                                fallback={<p className="notice">Preparing matching preview...</p>}
+                                fallback={
+                                    <p className="notice">Preparing abstraction preview...</p>
+                                }
                             >
-                                <MatchingPreview
+                                <AbstractionPreview
                                     sources={sources}
-                                    active={view === "matching"}
+                                    active={view === "construction"}
                                     onOpenObservation={openOriginalObservation}
                                     onOpenExecution={openOriginalExecution}
                                 />
@@ -442,7 +446,7 @@ export function App() {
                                             setSequenceId(event.target.value);
                                             setObservationId("");
                                             setExecutionId("");
-                                            setGapId("");
+                                            setOrderLinkId("");
                                         }}
                                     >
                                         <option value="">All test sequences</option>
@@ -483,22 +487,24 @@ export function App() {
                                                 onSelect={selectObservation}
                                                 selectedExecution={executionId}
                                                 onSelectExecution={selectExecution}
-                                                gaps={gaps}
-                                                selectedGap={gapId}
-                                                onSelectGap={selectGap}
+                                                orderLinks={orderLinks}
+                                                selectedOrderLink={orderLinkId}
+                                                onSelectOrderLink={selectOrderLink}
                                             />
                                         </Suspense>
                                         {observations.length > 1000 && (
                                             <p className="notice">
                                                 Graph shows a window of up to 1,000 observations
-                                                around the selected visit. The timeline accesses the
-                                                complete run.
+                                                around the selected observation. The timeline
+                                                accesses the complete run.
                                             </p>
                                         )}
                                         <section className="timeline">
                                             <div className="panel-heading">
                                                 <div>
-                                                    <span className="eyebrow">ORDERED VISITS</span>
+                                                    <span className="eyebrow">
+                                                        ORDERED OBSERVATIONS
+                                                    </span>
                                                     <h2>Trace timeline</h2>
                                                 </div>
                                                 <div className="step-controls">
@@ -541,7 +547,7 @@ export function App() {
                                                         <button
                                                             key={item.id}
                                                             className={
-                                                                "visit " +
+                                                                "observation " +
                                                                 (item.id === observation.id
                                                                     ? "active"
                                                                     : "")
@@ -551,7 +557,7 @@ export function App() {
                                                             }
                                                         >
                                                             <span
-                                                                className="visit-number"
+                                                                className="observation-number"
                                                                 title={
                                                                     "Test sequence " +
                                                                     source.evidence.sequences.get(
@@ -580,7 +586,7 @@ export function App() {
                                                                     ).slice(0, 180)}
                                                                 </small>
                                                             </span>
-                                                            <span className="visit-widgets">
+                                                            <span className="observation-widgets">
                                                                 {item.recorded_state.widgets.length}{" "}
                                                                 widgets
                                                             </span>
@@ -589,10 +595,10 @@ export function App() {
                                             </div>
                                         </section>
                                     </div>
-                                    {selectedGap ? (
-                                        <ObservationGapDetails
+                                    {selectedOrderLink ? (
+                                        <ObservationOrderLinkDetails
                                             source={source}
-                                            gap={selectedGap}
+                                            orderLink={selectedOrderLink}
                                             onSelectObservation={selectObservation}
                                             onSelectExecution={selectExecution}
                                         />

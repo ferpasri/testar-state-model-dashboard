@@ -3,7 +3,7 @@ import { canonical } from "../evidence/common";
 import type { RecordedExecution, RecordedRun } from "../evidence/reconstructed-evidence";
 import type { EventData, Observation } from "../evidence/schema";
 import {
-    MATCHING_LIMITS,
+    ABSTRACTION_LIMITS,
     type AnalysisSource,
     type EvidenceReference,
     type IndexCounts,
@@ -101,7 +101,7 @@ export function buildEvidenceIndex(
                 observation: observation.id,
             };
             index.observations.set(referenceKey(reference), { source, reference, observation });
-            if (index.observations.size > MATCHING_LIMITS.observations) {
+            if (index.observations.size > ABSTRACTION_LIMITS.observations) {
                 throw new Error(
                     "Select fewer runs: matching supports at most 10,000 observations.",
                 );
@@ -112,14 +112,14 @@ export function buildEvidenceIndex(
                     reference: widgetReference,
                     widget,
                 });
-                if (index.widgets.size > MATCHING_LIMITS.widgets) {
+                if (index.widgets.size > ABSTRACTION_LIMITS.widgets) {
                     throw new Error(
                         "Select fewer runs: matching supports at most 100,000 captured widgets.",
                     );
                 }
             }
-            for (const candidate of observation.available_actions) {
-                actions.add(candidate.action_description);
+            for (const availableAction of observation.available_actions) {
+                actions.add(availableAction.action_description);
             }
         }
         for (const execution of source.evidence.executions.values()) {

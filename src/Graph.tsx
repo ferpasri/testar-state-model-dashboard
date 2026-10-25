@@ -3,7 +3,7 @@ import cytoscape from "cytoscape";
 import type { ReconstructedEvidence } from "./evidence/reconstructed-evidence";
 import type { Observation } from "./evidence/schema";
 import { displayValue } from "./evidence/common";
-import type { ObservationGap } from "./evidence/trace";
+import type { ObservationOrderLink } from "./evidence/trace";
 
 export function Graph({
     evidence,
@@ -12,9 +12,9 @@ export function Graph({
     onSelect,
     selectedExecution,
     onSelectExecution,
-    gaps,
-    selectedGap,
-    onSelectGap,
+    orderLinks,
+    selectedOrderLink,
+    onSelectOrderLink,
 }: {
     evidence: ReconstructedEvidence;
     observations: Observation[];
@@ -22,17 +22,19 @@ export function Graph({
     onSelect: (id: string) => void;
     selectedExecution: string;
     onSelectExecution: (id: string) => void;
-    gaps: ObservationGap[];
-    selectedGap: string;
-    onSelectGap: (id: string) => void;
+    orderLinks: ObservationOrderLink[];
+    selectedOrderLink: string;
+    onSelectOrderLink: (id: string) => void;
 }) {
     const container = useRef<HTMLDivElement>(null);
     const graph = useRef<cytoscape.Core | null>(null);
     const [showOrderLinks, setShowOrderLinks] = useState(true);
-    const visibleGaps = useMemo(() => {
+    const visibleOrderLinks = useMemo(() => {
         const visible = new Set(observations.map((item) => item.id));
-        return gaps.filter((gap) => visible.has(gap.source) && visible.has(gap.target));
-    }, [gaps, observations]);
+        return orderLinks.filter(
+            (orderLink) => visible.has(orderLink.source) && visible.has(orderLink.target),
+        );
+    }, [orderLinks, observations]);
     useEffect(() => {
         if (!container.current) {
             return;
@@ -72,15 +74,15 @@ export function Graph({
             }
         }
         if (showOrderLinks) {
-            for (const [index, gap] of visibleGaps.entries()) {
+            for (const [index, orderLink] of visibleOrderLinks.entries()) {
                 elements.push({
-                    classes: "observation-gap",
+                    classes: "observation-order-link",
                     data: {
                         id: "g" + index,
-                        gap: gap.id,
-                        source: identities.get(gap.source),
-                        target: identities.get(gap.target),
-                        label: "Unknown / observation order",
+                        orderLink: orderLink.id,
+                        source: identities.get(orderLink.source),
+                        target: identities.get(orderLink.target),
+                        label: "Observation order only",
                     },
                 });
             }
@@ -127,7 +129,7 @@ export function Graph({
                     },
                 },
                 {
-                    selector: "edge.observation-gap",
+                    selector: "edge.observation-order-link",
                     style: {
                         "line-style": "dashed",
                         "line-color": "#8a9292",
@@ -159,9 +161,9 @@ export function Graph({
         graph.current = instance;
         instance.on("tap", "node", (event) => onSelect(event.target.data("observation")));
         instance.on("tap", "edge", (event) => {
-            const gap = event.target.data("gap");
-            if (typeof gap === "string") {
-                onSelectGap(gap);
+            const orderLink = event.target.data("orderLink");
+            if (typeof orderLink === "string") {
+                onSelectOrderLink(orderLink);
             } else {
                 onSelectExecution(event.target.data("execution"));
             }
@@ -180,17 +182,19 @@ export function Graph({
         observations,
         onSelect,
         onSelectExecution,
-        visibleGaps,
+        visibleOrderLinks,
         showOrderLinks,
-        onSelectGap,
+        onSelectOrderLink,
     ]);
     useEffect(() => {
         const instance = graph.current;
         if (instance) {
             instance.elements().unselect();
             const selection =
-                selectedGap && showOrderLinks
-                    ? instance.edges().filter((edge) => edge.data("gap") === selectedGap)
+                selectedOrderLink && showOrderLinks
+                    ? instance
+                          .edges()
+                          .filter((edge) => edge.data("orderLink") === selectedOrderLink)
                     : selectedExecution
                       ? instance
                             .edges()
@@ -205,13 +209,13 @@ export function Graph({
             }
             instance.center(selection);
         }
-    }, [selected, selectedExecution, selectedGap, observations, showOrderLinks]);
+    }, [selected, selectedExecution, selectedOrderLink, observations, showOrderLinks]);
     return (
         <section className="graph-panel" aria-label="Execution graph">
             <div className="panel-heading">
                 <div>
-                    <span className="eyebrow">CONCRETE TRACE</span>
-                    <h2>Every visit, connected.</h2>
+                    <span className="eyebrow">EVIDENCE TRACE</span>
+                    <h2>Recorded observations and transitions</h2>
                 </div>
                 <div className="graph-options">
                     <label className="compact-toggle">
@@ -220,8 +224,8 @@ export function Graph({
                             checked={showOrderLinks}
                             onChange={(event) => {
                                 setShowOrderLinks(event.target.checked);
-                                if (!event.target.checked && selectedGap) {
-                                    onSelectGap("");
+                                if (!event.target.checked && selectedOrderLink) {
+                                    onSelectOrderLink("");
                                 }
                             }}
                         />
@@ -235,11 +239,11 @@ export function Graph({
             <div ref={container} className="graph" />
             <div className="graph-note">
                 <span className="legend-dot" /> Observation <span className="legend-line" />{" "}
-                Completed execution{" "}
-                {showOrderLinks && visibleGaps.length > 0 && (
+                Recorded transition{" "}
+                {showOrderLinks && visibleOrderLinks.length > 0 && (
                     <>
-                        <span className="legend-gap" /> Observation order only ({visibleGaps.length}
-                        )
+                        <span className="legend-order-link" /> Observation order only (
+                        {visibleOrderLinks.length})
                     </>
                 )}
                 <span className="graph-hint">Scroll to zoom · Drag to pan</span>

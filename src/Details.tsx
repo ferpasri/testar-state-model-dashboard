@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { canonical, displayValue, formatJson } from "./evidence/common";
 import { Properties } from "./EvidenceFields";
 import { CaptureDescription, PropertyCaptureInformation } from "./CaptureInformation";
-import { EvaluationList } from "./EvaluationList";
+import { OracleResults } from "./OracleResults";
 import { EvaluationCoverage } from "./EvaluationCoverage";
 import type { ImportedSource } from "./evidence/import";
 import type { Artifact, Observation } from "./evidence/schema";
@@ -51,11 +51,11 @@ export function oracleResultsForObservation(source: ImportedSource, observation:
 export function Screenshot({
     source,
     artifact,
-    sequence,
+    observationIndex,
 }: {
     source: ImportedSource;
     artifact: Artifact;
-    sequence: number | bigint;
+    observationIndex: number | bigint;
 }) {
     const [url, setUrl] = useState("");
     const [failed, setFailed] = useState(false);
@@ -77,7 +77,7 @@ export function Screenshot({
             <img
                 src={url || undefined}
                 onError={() => setFailed(true)}
-                alt={"Screenshot for observation " + sequence}
+                alt={"Screenshot for observation " + observationIndex}
             />
             <figcaption>SHA-256 verified · {artifact.media_type}</figcaption>
         </figure>
@@ -129,16 +129,18 @@ export function Details({
                 <h2>Observation {observation.observation_index}</h2>
                 <p>
                     {displayValue(
-                        observation.recorded_state.properties["ui.title"] ?? "Captured visit",
+                        observation.recorded_state.properties["ui.title"] ?? "Captured observation",
                     )}
                 </p>
             </div>
             <nav className="tabs" aria-label="Evidence details">
-                {["Observation", "Widgets", "Evaluations", "Coverage", "Executions"].map((name) => (
-                    <button key={name} aria-pressed={tab === name} onClick={() => setTab(name)}>
-                        {name}
-                    </button>
-                ))}
+                {["Observation", "Widgets", "Oracle results", "Coverage", "Executions"].map(
+                    (name) => (
+                        <button key={name} aria-pressed={tab === name} onClick={() => setTab(name)}>
+                            {name}
+                        </button>
+                    ),
+                )}
             </nav>
             <div className="detail-body">
                 {tab === "Observation" && (
@@ -148,7 +150,7 @@ export function Details({
                                 {observation.recorded_state.capture} capture
                             </span>
                             <span className="badge">
-                                {observation.available_action_scope} available_actions
+                                Available-action scope: {observation.available_action_scope}
                             </span>
                         </div>
                         {observation.recorded_state.capture === "unavailable" && (
@@ -164,7 +166,7 @@ export function Details({
                         )}
                         {images.length === 0 && (
                             <p className="muted">
-                                No PNG or JPEG screenshot was recorded for this visit.
+                                No PNG or JPEG screenshot was recorded for this observation.
                             </p>
                         )}
                         {images.map((artifact) => (
@@ -172,7 +174,7 @@ export function Details({
                                 key={artifact.id}
                                 source={source}
                                 artifact={artifact}
-                                sequence={observation.observation_index}
+                                observationIndex={observation.observation_index}
                             />
                         ))}
                         <CaptureDescription properties={observation.recorded_state.properties} />
@@ -266,7 +268,7 @@ export function Details({
                         )}
                     </>
                 )}
-                {tab === "Evaluations" && (
+                {tab === "Oracle results" && (
                     <>
                         <p className="muted">
                             {oracleResults.length} results target this observation, its test run or
@@ -275,7 +277,7 @@ export function Details({
                             Pending means the oracle had not reached a definite outcome when
                             recorded.
                         </p>
-                        <EvaluationList oracleResults={oracleResults} evidence={source.evidence} />
+                        <OracleResults oracleResults={oracleResults} evidence={source.evidence} />
                     </>
                 )}
                 {tab === "Coverage" && (
@@ -287,7 +289,9 @@ export function Details({
                 )}
                 {tab === "Executions" && (
                     <>
-                        <p className="muted">Recorded executions entering or leaving this visit.</p>
+                        <p className="muted">
+                            Recorded executions entering or leaving this observation.
+                        </p>
                         {executions.map((item) => (
                             <article key={item.execution.id} className="evaluation">
                                 <button

@@ -144,7 +144,7 @@ test("shows capture selection and groups alias coverage while listing known omis
     await expect(properties.locator(".coverage-properties").first()).not.toContainText(
         "source.text",
     );
-    await properties.getByLabel("Only properties without recorded evaluations").uncheck();
+    await properties.getByLabel("Only properties without recorded oracle results").uncheck();
     const row = properties
         .locator(".coverage-properties")
         .first()
@@ -168,7 +168,7 @@ test("filters final assessments and keeps their pending status and original sequ
     await page
         .getByLabel("Evidence directory")
         .setInputFiles(metadataModel(info.outputPath("evidence")));
-    await page.getByRole("button", { name: "Evaluations", exact: true }).click();
+    await page.getByRole("button", { name: "Oracle results", exact: true }).click();
     await expect(page.locator(".evaluation")).toHaveCount(4);
     const phase = page.getByRole("group", { name: "Assessment phase" });
     await phase.getByRole("button", { name: "End of run (1)", exact: true }).click();
@@ -176,10 +176,12 @@ test("filters final assessments and keeps their pending status and original sequ
     await expect(page.locator(".evaluation .badge.pending")).toHaveCount(1);
     await expect(page.locator(".evaluation").first()).toContainText("end of run");
     await expect(page.locator(".evaluation").first()).toContainText("Run ending: deadline");
-    await expect(page.locator(".evaluation").first()).toContainText("Target: observation range");
+    await expect(page.locator(".evaluation").first()).toContainText(
+        "Oracle target: observation range",
+    );
     await expect(page.locator(".evaluation").first()).toContainText("future observations");
     await page
-        .getByRole("group", { name: "Evaluation status" })
+        .getByRole("group", { name: "Oracle status" })
         .getByRole("button", { name: "Passed (1)", exact: true })
         .click();
     await expect(page.locator(".evaluation")).toHaveCount(0);

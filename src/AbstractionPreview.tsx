@@ -1,21 +1,21 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import {
     DEFAULT_PRESETS,
-    parseDefinition,
+    parseAbstractionRules,
     runKey,
     type EvidenceReference,
     type ExecutionReference,
-    type DerivedModel,
-    type MatchingPreview as Preview,
-    type MatchingProgress,
+    type AbstractModel,
+    type AbstractionPreview as Preview,
+    type AbstractionProgress,
 } from "./analysis";
-import { matchingInputs } from "./matching-input";
-import { MatchingResults } from "./MatchingResults";
+import { abstractionInputs } from "./abstraction-input";
+import { ObservationGroups } from "./ObservationGroups";
 import { formatJson } from "./evidence/common";
 import type { ImportedSource } from "./evidence/import";
 
-const DerivedModelView = lazy(() =>
-    import("./DerivedModelView").then((module) => ({ default: module.DerivedModelView })),
+const AbstractModelView = lazy(() =>
+    import("./AbstractModelView").then((module) => ({ default: module.AbstractModelView })),
 );
 
 interface Props {
@@ -38,20 +38,20 @@ function downloadJson(name: string, value: unknown) {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-export function MatchingPreview({ sources, active, onOpenObservation, onOpenExecution }: Props) {
+export function AbstractionPreview({ sources, active, onOpenObservation, onOpenExecution }: Props) {
     const [preset, setPreset] = useState("0");
     const [setupOpen, setSetupOpen] = useState(true);
     const [definition, setDefinition] = useState(() => formatJson(DEFAULT_PRESETS[0].definition));
     const [excludedRuns, setExcludedRuns] = useState<Set<string>>(new Set());
     const [runLimit, setRunLimit] = useState(50);
     const [preview, setPreview] = useState<Preview | null>(null);
-    const [model, setModel] = useState<DerivedModel | null>(null);
-    const [resultView, setResultView] = useState<"groups" | "derived">("groups");
-    const [derivedOpened, setDerivedOpened] = useState(false);
+    const [model, setModel] = useState<AbstractModel | null>(null);
+    const [resultView, setResultView] = useState<"groups" | "model">("groups");
+    const [abstractModelOpened, setAbstractModelOpened] = useState(false);
     const [groupFocus, setGroupFocus] = useState<{ id: string } | undefined>();
     const [error, setError] = useState("");
     const [busy, setBusy] = useState(false);
-    const [progress, setProgress] = useState<MatchingProgress | null>(null);
+    const [progress, setProgress] = useState<AbstractionProgress | null>(null);
     const worker = useRef<Worker | null>(null);
     const runs = useMemo(
         () =>
@@ -70,7 +70,7 @@ export function MatchingPreview({ sources, active, onOpenObservation, onOpenExec
         setPreview(null);
         setModel(null);
         setResultView("groups");
-        setDerivedOpened(false);
+        setAbstractModelOpened(false);
         setGroupFocus(undefined);
         setError("");
         setBusy(false);
@@ -99,7 +99,7 @@ export function MatchingPreview({ sources, active, onOpenObservation, onOpenExec
         setPreview(null);
         setModel(null);
         setResultView("groups");
-        setDerivedOpened(false);
+        setAbstractModelOpened(false);
         setGroupFocus(undefined);
         setError("");
     }
@@ -107,9 +107,9 @@ export function MatchingPreview({ sources, active, onOpenObservation, onOpenExec
     function start() {
         invalidate();
         try {
-            parseDefinition(definition);
-            const inputs = matchingInputs(sources, selectedRuns);
-            const instance = new Worker(new URL("./matching.worker.ts", import.meta.url), {
+            parseAbstractionRules(definition);
+            const inputs = abstractionInputs(sources, selectedRuns);
+            const instance = new Worker(new URL("./abstraction.worker.ts", import.meta.url), {
                 type: "module",
             });
             worker.current = instance;
@@ -123,8 +123,8 @@ export function MatchingPreview({ sources, active, onOpenObservation, onOpenExec
                 } else if (result.kind === "complete") {
                     setPreview(result.preview);
                     setModel(result.model);
-                    setDerivedOpened(true);
-                    setResultView("derived");
+                    setAbstractModelOpened(true);
+                    setResultView("model");
                     setSetupOpen(false);
                     cancel();
                 } else if (result.kind === "error") {
@@ -134,7 +134,7 @@ export function MatchingPreview({ sources, active, onOpenObservation, onOpenExec
             };
             instance.onerror = () => {
                 if (worker.current === instance) {
-                    setError("The matching worker stopped. Try selecting fewer runs.");
+                    setError("The abstraction worker stopped. Try selecting fewer runs.");
                     cancel();
                 }
             };
@@ -142,23 +142,29 @@ export function MatchingPreview({ sources, active, onOpenObservation, onOpenExec
             instance.postMessage({ sources: inputs, definition, selectedRuns });
         } catch (failure) {
             cancel();
-            setError(failure instanceof Error ? failure.message : "Matching could not be started.");
+            setError(
+                failure instanceof Error
+                    ? failure.message
+                    : "Model construction could not be started.",
+            );
         }
     }
 
     function downloadRules() {
         try {
-            downloadJson("matching-rules.json", parseDefinition(definition));
+            downloadJson("abstraction-rules.json", parseAbstractionRules(definition));
         } catch (failure) {
-            setError(failure instanceof Error ? failure.message : "Check the matching definition.");
+            setError(
+                failure instanceof Error ? failure.message : "Check the abstraction rules (JSON).",
+            );
         }
     }
 
     return (
-        <div className="matching-workspace">
-            <div className="matching-heading" hidden={preview !== null}>
+        <div className="abstraction-workspace">
+            <div className="abstraction-heading" hidden={preview !== null}>
                 <span className="eyebrow">COMPARE RECORDED EVIDENCE</span>
-                <h1>Match evidence across runs</h1>
+                <h1>Construct an abstract model</h1>
             </div>
             <details
                 className="model-setup"
@@ -178,15 +184,15 @@ export function MatchingPreview({ sources, active, onOpenObservation, onOpenExec
                     Select the evidence and the properties that matter for your testing objective.
                     Preview which observations agree, then inspect their original records.
                 </p>
-                <div className="matching-controls">
-                    <section className="matching-panel">
+                <div className="abstraction-controls">
+                    <section className="abstraction-panel">
                         <h2>Runs to compare</h2>
                         <p className="muted">
                             {selectedRuns.length} of {runs.length} runs selected.
                         </p>
-                        <div className="matching-runs">
+                        <div className="abstraction-runs">
                             {runs.slice(0, runLimit).map((run) => (
-                                <label className="matching-run compact-toggle" key={run.key}>
+                                <label className="abstraction-run compact-toggle" key={run.key}>
                                     <input
                                         type="checkbox"
                                         checked={!excludedRuns.has(run.key)}
@@ -211,12 +217,12 @@ export function MatchingPreview({ sources, active, onOpenObservation, onOpenExec
                             </button>
                         )}
                     </section>
-                    <section className="matching-panel">
-                        <h2>Comparison rules</h2>
+                    <section className="abstraction-panel">
+                        <h2>Abstraction rules</h2>
                         <label className="search-label">
-                            Matching preset
+                            Abstraction preset
                             <select
-                                aria-label="Matching preset"
+                                aria-label="Abstraction preset"
                                 value={preset}
                                 onChange={(event) => {
                                     invalidate();
@@ -244,9 +250,9 @@ export function MatchingPreview({ sources, active, onOpenObservation, onOpenExec
                                 : DEFAULT_PRESETS[Number(preset)].description}
                         </p>
                         <details>
-                            <summary>Edit matching rules (JSON)</summary>
+                            <summary>Edit abstraction rules (JSON)</summary>
                             <textarea
-                                aria-label="Matching definition"
+                                aria-label="Abstraction rules (JSON)"
                                 spellCheck={false}
                                 value={definition}
                                 onChange={(event) => {
@@ -256,7 +262,7 @@ export function MatchingPreview({ sources, active, onOpenObservation, onOpenExec
                                 }}
                             />
                         </details>
-                        <div className="matching-actions">
+                        <div className="abstraction-actions">
                             <button
                                 className="primary"
                                 disabled={selectedRuns.length === 0 || busy}
@@ -272,18 +278,18 @@ export function MatchingPreview({ sources, active, onOpenObservation, onOpenExec
                 </div>
             </details>
             {error && (
-                <p className="notice matching-error" role="alert">
+                <p className="notice abstraction-error" role="alert">
                     {error}
                 </p>
             )}
             {busy && (
-                <div className="matching-progress" role="status">
+                <div className="abstraction-progress" role="status">
                     <span>
                         {progress?.stage ?? "Preparing comparison"}
                         {progress ? " " + progress.completed + " / " + progress.total : ""}
                     </span>
                     <button className="quiet" onClick={cancel}>
-                        Cancel matching
+                        Cancel model construction
                     </button>
                 </div>
             )}
@@ -294,20 +300,20 @@ export function MatchingPreview({ sources, active, onOpenObservation, onOpenExec
                             aria-pressed={resultView === "groups"}
                             onClick={() => setResultView("groups")}
                         >
-                            Matching groups
+                            Observation groups
                         </button>
                         <button
-                            aria-pressed={resultView === "derived"}
+                            aria-pressed={resultView === "model"}
                             onClick={() => {
-                                setDerivedOpened(true);
-                                setResultView("derived");
+                                setAbstractModelOpened(true);
+                                setResultView("model");
                             }}
                         >
-                            Derived model
+                            Abstract model
                         </button>
                         <button
                             className="quiet"
-                            onClick={() => downloadJson("matching-preview.json", preview)}
+                            onClick={() => downloadJson("abstraction-preview.json", preview)}
                         >
                             Download preview
                         </button>
@@ -315,7 +321,7 @@ export function MatchingPreview({ sources, active, onOpenObservation, onOpenExec
                             <button
                                 className="quiet"
                                 onClick={() =>
-                                    downloadJson("derived-model.json", {
+                                    downloadJson("abstract-model.json", {
                                         definition: preview.definition,
                                         policyFingerprint: preview.policyFingerprint,
                                         interpreterVersion: preview.interpreterVersion,
@@ -329,7 +335,7 @@ export function MatchingPreview({ sources, active, onOpenObservation, onOpenExec
                         )}
                     </nav>
                     <div hidden={resultView !== "groups"}>
-                        <MatchingResults
+                        <ObservationGroups
                             key={preview.policyFingerprint + JSON.stringify(preview.inputScope)}
                             preview={preview}
                             sources={sources}
@@ -337,16 +343,16 @@ export function MatchingPreview({ sources, active, onOpenObservation, onOpenExec
                             onOpenObservation={onOpenObservation}
                         />
                     </div>
-                    {derivedOpened && model && (
-                        <div hidden={resultView !== "derived"}>
+                    {abstractModelOpened && model && (
+                        <div hidden={resultView !== "model"}>
                             <Suspense
-                                fallback={<p className="notice">Preparing derived model...</p>}
+                                fallback={<p className="notice">Preparing abstract model...</p>}
                             >
-                                <DerivedModelView
+                                <AbstractModelView
                                     model={model}
                                     preview={preview}
                                     sources={sources}
-                                    active={active && resultView === "derived"}
+                                    active={active && resultView === "model"}
                                     onOpenObservation={onOpenObservation}
                                     onOpenExecution={onOpenExecution}
                                     onInspectGroup={(id) => {

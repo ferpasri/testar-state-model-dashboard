@@ -1,7 +1,7 @@
 import { canonical } from "../evidence/common";
 import { removePathParameters } from "./url";
 import {
-    MATCHING_LIMITS,
+    ABSTRACTION_LIMITS,
     type Field,
     type FieldExplanation,
     type Predicate,
@@ -128,7 +128,7 @@ function assertBoundedValue(value: unknown): void {
     const encoded = canonical(value);
     if (
         encoded === undefined ||
-        new TextEncoder().encode(encoded).byteLength > MATCHING_LIMITS.normalizedValueBytes
+        new TextEncoder().encode(encoded).byteLength > ABSTRACTION_LIMITS.normalizedValueBytes
     ) {
         throw new Error("A selected value exceeds the 1 MiB normalization limit.");
     }
@@ -141,7 +141,7 @@ function replaceLiteral(value: string, find: string, replacement: string): strin
         count++;
         if (
             value.length + count * (replacement.length - find.length) >
-            MATCHING_LIMITS.normalizedValueBytes
+            ABSTRACTION_LIMITS.normalizedValueBytes
         ) {
             throw new Error("A replacement exceeds the 1 MiB normalization limit.");
         }

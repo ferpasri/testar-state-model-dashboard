@@ -101,8 +101,8 @@ test("filters evaluation outcomes without changing reported coverage", async ({ 
     await page.goto("/");
     await page.getByLabel("Evidence directory").setInputFiles(sample(info.outputPath("evidence")));
     await expect(page.getByRole("heading", { name: "Observation 1", exact: true })).toBeVisible();
-    await page.getByRole("button", { name: "Evaluations", exact: true }).click();
-    const filters = page.getByRole("group", { name: "Evaluation status" });
+    await page.getByRole("button", { name: "Oracle results", exact: true }).click();
+    const filters = page.getByRole("group", { name: "Oracle status" });
     for (const status of ["Passed", "Failed", "Pending", "Unknown", "Error"]) {
         await filters.getByRole("button", { name: status + " (1)", exact: true }).click();
         await expect(page.locator(".evaluation")).toHaveCount(1);
@@ -112,7 +112,7 @@ test("filters evaluation outcomes without changing reported coverage", async ({ 
     await expect(page.locator(".evaluation")).toHaveCount(5);
 });
 
-test("lists captured items without direct results and navigates to uncovered visits", async ({
+test("lists captured items without direct results and navigates to uncovered observations", async ({
     page,
 }, info) => {
     await page.goto("/");
@@ -120,11 +120,11 @@ test("lists captured items without direct results and navigates to uncovered vis
     await page.getByRole("button", { name: "Coverage", exact: true }).click();
     const coverage = page.getByRole("region", { name: "Recorded evaluation coverage" });
     await expect(coverage).toContainText("1 of 2 captured widgets have no direct result");
-    await expect(coverage).toContainText("1 of 2 visits match");
+    await expect(coverage).toContainText("1 of 2 observations match");
     const state = coverage.locator(".property-coverage").first();
     await expect(state.getByText("example.unchecked", { exact: true })).toBeVisible();
     await expect(state.getByText("ui.title", { exact: true })).toHaveCount(0);
-    await state.getByLabel("Only properties without recorded evaluations").uncheck();
+    await state.getByLabel("Only properties without recorded oracle results").uncheck();
     await expect(state.getByText("ui.title", { exact: true })).toBeVisible();
     await page.getByLabel("Widget coverage", { exact: true }).selectOption("no-results");
     await expect(coverage.locator(".widget")).toHaveCount(1);

@@ -1,32 +1,32 @@
 import { useState } from "react";
 import type {
-    DerivedEdge,
-    DerivedModel,
-    DerivedNode,
+    AbstractModelEdge,
+    AbstractModel,
+    AbstractModelNode,
     EvidenceReference,
     ExecutionReference,
-    MatchingPreview,
+    AbstractionPreview,
 } from "./analysis";
 import type { ImportedSource } from "./evidence/import";
 import { displayValue } from "./evidence/common";
-import { evidenceLabel } from "./derived-presentation";
+import { evidenceLabel } from "./abstract-model-presentation";
 import { Screenshot } from "./Details";
 
 interface Props {
-    node?: DerivedNode;
-    edge?: DerivedEdge;
-    model: DerivedModel;
-    preview: MatchingPreview;
+    node?: AbstractModelNode;
+    edge?: AbstractModelEdge;
+    model: AbstractModel;
+    preview: AbstractionPreview;
     sources: ImportedSource[];
     onOpenObservation: (reference: EvidenceReference) => void;
     onOpenExecution: (reference: ExecutionReference) => void;
     onInspectGroup: (id: string) => void;
 }
 
-export function DerivedInspector(props: Props) {
+export function AbstractModelInspector(props: Props) {
     const { node, edge } = props;
     return (
-        <aside className="matching-panel derived-inspector">
+        <aside className="abstraction-panel abstract-model-inspector">
             <span className="eyebrow">MODEL INSPECTOR</span>
             {edge ? (
                 <EdgeInspector key={edge.id} {...props} edge={edge} />
@@ -50,7 +50,7 @@ function NodeInspector({
     sources,
     onOpenObservation,
     onInspectGroup,
-}: Props & { node: DerivedNode }) {
+}: Props & { node: AbstractModelNode }) {
     const [limit, setLimit] = useState(20);
     const [showScreenshots, setShowScreenshots] = useState(false);
     const [showComparison, setShowComparison] = useState(false);
@@ -71,8 +71,8 @@ function NodeInspector({
     }
     return (
         <>
-            <h2>{node.unmatchedReason ? "Unmatched observation" : "State group"}</h2>
-            <p className="derived-selection-label">{node.label}</p>
+            <h2>{node.unmatchedReason ? "Unmatched observation" : "Abstract state"}</h2>
+            <p className="abstract-model-selection-label">{node.label}</p>
             <p className="muted">
                 {node.members.length} original observations. Oracle results remain attached to their
                 original targets.
@@ -85,7 +85,7 @@ function NodeInspector({
                         {showComparison && <pre>{displayValue(group.comparison)}</pre>}
                     </details>
                     <button className="quiet" onClick={() => onInspectGroup(group.id)}>
-                        Inspect matching group
+                        Inspect observation group
                     </button>
                 </>
             )}
@@ -93,19 +93,20 @@ function NodeInspector({
                 <details onToggle={(event) => setShowScreenshots(event.currentTarget.open)}>
                     <summary>Original screenshots</summary>
                     <p className="muted">
-                        Up to four original visits. Open any observation for its full evidence.
+                        Up to four original observations. Open any observation for its full
+                        evidence.
                     </p>
                     {showScreenshots &&
                         screenshots.map((item) => (
                             <div
                                 key={JSON.stringify(item.reference)}
-                                className="derived-screenshot"
+                                className="abstract-model-screenshot"
                             >
                                 <p className="muted">{evidenceLabel(sources, item.reference)}</p>
                                 <Screenshot
                                     source={item.source}
                                     artifact={item.artifact}
-                                    sequence={item.observation.observation_index}
+                                    observationIndex={item.observation.observation_index}
                                 />
                             </div>
                         ))}
@@ -116,7 +117,7 @@ function NodeInspector({
                 const source = sources.find((item) => item.id === reference.source);
                 const observation = source?.evidence.observations.get(reference.observation);
                 return (
-                    <article className="derived-member" key={JSON.stringify(reference)}>
+                    <article className="abstract-model-member" key={JSON.stringify(reference)}>
                         <strong>{evidenceLabel(sources, reference)}</strong>
                         <p className="muted">
                             Observation {observation?.observation_index} / capture:{" "}
@@ -152,14 +153,14 @@ function EdgeInspector({
     sources,
     onOpenObservation,
     onOpenExecution,
-}: Props & { edge: DerivedEdge }) {
+}: Props & { edge: AbstractModelEdge }) {
     const [limit, setLimit] = useState(20);
     const from = model.nodes.find((node) => node.id === edge.source);
     const to = model.nodes.find((node) => node.id === edge.target);
     return (
         <>
-            <h2>{edge.kind === "execution" ? "Recorded transitions" : "Observation order"}</h2>
-            <p className="derived-selection-label">{edge.label}</p>
+            <h2>{edge.kind === "execution" ? "Abstract transition" : "Observation-order links"}</h2>
+            <p className="abstract-model-selection-label">{edge.label}</p>
             <p className="muted">
                 {from?.label} → {to?.label}
             </p>
@@ -167,7 +168,7 @@ function EdgeInspector({
                 <>
                     <p className="muted">
                         {edge.executions.length} completed executions share these endpoint groups
-                        and the recorded action kind. Their original targets and parameters remain
+                        and the recorded action type. Their original targets and parameters remain
                         distinct.
                     </p>
                     {edge.executions.slice(0, limit).map((reference) => {
@@ -183,7 +184,10 @@ function EdgeInspector({
                             ? source?.evidence.observations.get(record.resultingObservation)
                             : undefined;
                         return (
-                            <article className="derived-execution" key={JSON.stringify(reference)}>
+                            <article
+                                className="abstract-model-execution"
+                                key={JSON.stringify(reference)}
+                            >
                                 <strong>{evidenceLabel(sources, reference)}</strong>
                                 <p>
                                     {action?.action_type} / observation{" "}
@@ -223,12 +227,12 @@ function EdgeInspector({
             ) : (
                 <>
                     <p className="notice">
-                        These observations are consecutive in their original runs. No completed
-                        execution connects each pair. The model does not establish that an action
-                        happened.
+                        These observations are consecutive in their original test sequences. No
+                        completed execution connects each pair. The model does not establish that an
+                        action happened.
                     </p>
                     {edge.orderLinks.slice(0, limit).map((link) => (
-                        <article className="derived-order-link" key={JSON.stringify(link)}>
+                        <article className="abstract-model-order-link" key={JSON.stringify(link)}>
                             <strong>{evidenceLabel(sources, link.source)}</strong>
                             <p className="muted">
                                 {link.source.observation} → {link.target.observation}

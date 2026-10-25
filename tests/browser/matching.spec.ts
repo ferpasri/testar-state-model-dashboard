@@ -2,7 +2,7 @@ import { openModelSetup } from "./model-controls";
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import type { MatchingDefinition, MatchingPreview } from "../../src/analysis";
+import type { AbstractionRules, AbstractionPreview } from "../../src/analysis";
 import type { EvidenceEvent } from "../../src/evidence/schema";
 import { sharedCases } from "../support";
 
@@ -56,26 +56,28 @@ async function importSources(
     }
     await page.getByRole("button", { name: "Construct model", exact: true }).click();
     await expect(
-        page.getByRole("heading", { name: "Match evidence across runs", exact: true }),
+        page.getByRole("heading", { name: "Construct an abstract model", exact: true }),
     ).toBeVisible();
     if (preset) {
-        await page.getByLabel("Matching preset", { exact: true }).selectOption({ label: preset });
+        await page
+            .getByLabel("Abstraction preset", { exact: true })
+            .selectOption({ label: preset });
     }
 }
 
 async function previewMatches(page: Page): Promise<void> {
     await openModelSetup(page);
     await page.getByRole("button", { name: "Build model", exact: true }).click();
-    await page.getByRole("button", { name: "Matching groups", exact: true }).click();
+    await page.getByRole("button", { name: "Observation groups", exact: true }).click();
     await expect(page.getByRole("heading", { name: "Proposed groups", exact: true })).toBeVisible();
 }
 
 async function editRules(page: Page, definition: unknown): Promise<void> {
     await openModelSetup(page);
-    const editor = page.getByLabel("Matching definition", { exact: true });
+    const editor = page.getByLabel("Abstraction rules (JSON)", { exact: true });
     if (!(await editor.isVisible())) {
         await openModelSetup(page);
-        await page.getByText("Edit matching rules (JSON)", { exact: true }).click();
+        await page.getByText("Edit abstraction rules (JSON)", { exact: true }).click();
     }
     await editor.fill(JSON.stringify(definition, null, 4));
 }
@@ -130,7 +132,7 @@ test("normalizes only explicitly selected data and invalidates previews when inp
     await expect(page.locator(".match-group")).toHaveCount(0);
     await page.getByLabel("Group filter", { exact: true }).selectOption("all");
     await expect(page.locator(".match-group")).toHaveCount(2);
-    const definition: MatchingDefinition = {
+    const definition: AbstractionRules = {
         version: 1,
         name: "Ignore the captured request timestamp",
         state: [
@@ -150,16 +152,16 @@ test("normalizes only explicitly selected data and invalidates previews when inp
     await expect(page.locator(".match-group")).toHaveCount(1);
     await page.locator(".match-group").first().click();
     await expect(page.locator(".match-member")).toHaveCount(2);
-    const downloadedRules = await downloadJson<MatchingDefinition>(
+    const downloadedRules = await downloadJson<AbstractionRules>(
         page,
         "Download rules",
-        "matching-rules.json",
+        "abstraction-rules.json",
     );
     expect(downloadedRules).toEqual(definition);
-    const downloadedPreview = await downloadJson<MatchingPreview>(
+    const downloadedPreview = await downloadJson<AbstractionPreview>(
         page,
         "Download preview",
-        "matching-preview.json",
+        "abstraction-preview.json",
     );
     expect(downloadedPreview.definition).toEqual(definition);
     expect(downloadedPreview.policyFingerprint).toMatch(/^[a-f0-9]{64}$/u);
@@ -185,12 +187,12 @@ test("normalizes only explicitly selected data and invalidates previews when inp
     await page.getByRole("button", { name: "Construct model", exact: true }).click();
     await expect(page.getByRole("heading", { name: "Proposed groups", exact: true })).toBeVisible();
     expect(
-        JSON.parse(await page.getByLabel("Matching definition", { exact: true }).inputValue()),
+        JSON.parse(await page.getByLabel("Abstraction rules (JSON)", { exact: true }).inputValue()),
     ).toEqual(definition);
     await expect(page.locator(".match-group")).toHaveCount(1);
     await expect(page.locator(".match-member")).toHaveCount(2);
     await openModelSetup(page);
-    const secondRun = page.locator(".matching-run").filter({ hasText: "source-b-tool" });
+    const secondRun = page.locator(".abstraction-run").filter({ hasText: "source-b-tool" });
     await secondRun.getByRole("checkbox").uncheck();
     await expect(page.locator(".match-group")).toHaveCount(0);
     await previewMatches(page);
@@ -198,7 +200,7 @@ test("normalizes only explicitly selected data and invalidates previews when inp
     await expect(page.locator(".source")).toHaveCount(2);
 });
 
-test("reports invalid matching rules while preserving the imported evidence", async ({
+test("reports invalid abstraction rules while preserving the imported evidence", async ({
     page,
 }, info) => {
     const url = "https://sut.example/account";
@@ -237,14 +239,14 @@ test("uses title-aware defaults and configurable session normalization without c
         ],
         null,
     );
-    const preset = page.getByLabel("Matching preset", { exact: true });
+    const preset = page.getByLabel("Abstraction preset", { exact: true });
     await expect(preset.locator("option:checked")).toHaveText("Page address and title");
     await previewMatches(page);
     await expect(page.locator(".match-group")).toHaveCount(0);
     await openModelSetup(page);
-    await page.getByText("Edit matching rules (JSON)", { exact: true }).click();
-    const editor = page.getByLabel("Matching definition", { exact: true });
-    const definition = JSON.parse(await editor.inputValue()) as MatchingDefinition;
+    await page.getByText("Edit abstraction rules (JSON)", { exact: true }).click();
+    const editor = page.getByLabel("Abstraction rules (JSON)", { exact: true });
+    const definition = JSON.parse(await editor.inputValue()) as AbstractionRules;
     expect(definition.state.find((field) => field.keys.includes("ui.title"))?.required).toBe(true);
     const address = definition.state.find((field) => field.keys.includes("ui.url"))!;
     address.transforms = [
@@ -261,23 +263,21 @@ test("uses title-aware defaults and configurable session normalization without c
         secondAddress,
     );
     await openModelSetup(page);
-    const exported = await downloadJson<MatchingDefinition>(
+    const exported = await downloadJson<AbstractionRules>(
         page,
         "Download rules",
-        "matching-rules.json",
+        "abstraction-rules.json",
     );
     expect(exported.state.find((field) => field.name === "address")?.transforms).toEqual(
         address.transforms,
     );
-    await page.getByRole("button", { name: "Derived model", exact: true }).click();
-    await expect(
-        page.getByRole("heading", { name: "Derived state model", exact: true }),
-    ).toBeVisible();
-    await expect(page.locator(".derived-node")).toHaveCount(1);
-    await expect(page.locator(".derived-node")).toContainText(title);
-    await expect(page.locator(".derived-selection-label")).toContainText(title);
+    await page.getByRole("button", { name: "Abstract model", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Abstract model", exact: true })).toBeVisible();
+    await expect(page.locator(".abstract-model-node")).toHaveCount(1);
+    await expect(page.locator(".abstract-model-node")).toContainText(title);
+    await expect(page.locator(".abstract-model-selection-label")).toContainText(title);
     await page
-        .locator(".derived-member")
+        .locator(".abstract-model-member")
         .filter({ hasText: "source-b-tool" })
         .getByRole("button", { name: "Open original observation", exact: true })
         .click();

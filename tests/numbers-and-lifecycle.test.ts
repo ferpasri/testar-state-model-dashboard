@@ -3,7 +3,7 @@ import path from "node:path";
 import { expect, test, vi } from "vitest";
 import { canonical, displayValue, formatJson, parseJson } from "../src/evidence/common";
 import { importDirectory } from "../src/evidence/import";
-import { Replay } from "../src/evidence/reconstructed-evidence";
+import { EvidenceReconstructor } from "../src/evidence/reconstructed-evidence";
 import { manifestSchema } from "../src/evidence/schema";
 import { sharedCases, fixtureFiles } from "./support";
 
@@ -16,26 +16,26 @@ const manifest = manifestSchema.parse(
     JSON.parse(readFileSync(path.join(directory, "manifest.json"), "utf8")),
 );
 
-test("preserves large integer properties through parsing, replay, clone, and display", () => {
+test("preserves large integer properties through parsing, reconstruction, clone, and display", () => {
     const text = '{"large":18446744073709551615,"small":42}';
     const properties = parseJson(text);
     expect(canonical(properties)).toBe(text);
     expect(formatJson(structuredClone(properties))).toContain("18446744073709551615");
     const observation_recorded = structuredClone(initial[3]);
     observation_recorded.event.data.recorded_state.properties = properties;
-    const replay = new Replay(manifest);
-    replay.apply(initial[0]);
-    replay.apply(initial[1]);
-    replay.apply(initial[2]);
-    replay.apply(observation_recorded);
+    const reconstructor = new EvidenceReconstructor(manifest);
+    reconstructor.apply(initial[0]);
+    reconstructor.apply(initial[1]);
+    reconstructor.apply(initial[2]);
+    reconstructor.apply(observation_recorded);
     expect(
-        replay.evidence.observations.values().next().value!.recorded_state.properties.large,
+        reconstructor.evidence.observations.values().next().value!.recorded_state.properties.large,
     ).toBe(18446744073709551615n);
 });
 
 test("retains incomplete execution status and accepts a late evaluation", () => {
-    const replay = new Replay(manifest);
-    initial.forEach((event) => replay.apply(event));
+    const reconstructor = new EvidenceReconstructor(manifest);
+    initial.forEach((event) => reconstructor.apply(event));
     const observation = initial[3].event.data;
     const execution = {
         id: "execution",
@@ -46,7 +46,7 @@ test("retains incomplete execution status and accepts a late evaluation", () => 
         parameters: {},
     };
     const emit = (id: string, kind: string, data: unknown) =>
-        replay.apply({ schema_version: 3, id, event: { event_type: kind, data } });
+        reconstructor.apply({ schema_version: 3, id, event: { event_type: kind, data } });
     emit("selected", "action_selected", execution);
     emit("submitted", "action_execution_reported", {
         action_execution: "execution",
@@ -57,7 +57,7 @@ test("retains incomplete execution status and accepts a late evaluation", () => 
         test_sequence: observation.test_sequence,
         reason: "interrupted",
     });
-    expect(replay.evidence.executions.get("execution")).toMatchObject({
+    expect(reconstructor.evidence.executions.get("execution")).toMatchObject({
         status: "incomplete",
         resultingObservation: null,
     });
@@ -69,7 +69,7 @@ test("retains incomplete execution status and accepts a late evaluation", () => 
         oracle_status: "unknown",
         oracle_details: {},
     });
-    expect(replay.evidence.oracleResults).toHaveLength(1);
+    expect(reconstructor.evidence.oracleResults).toHaveLength(1);
     expect(() =>
         emit("second-finish", "test_sequence_finished", {
             test_sequence: observation.test_sequence,
@@ -79,10 +79,10 @@ test("retains incomplete execution status and accepts a late evaluation", () => 
 });
 
 test("rejects a backward result while preserving a submitted execution", () => {
-    const replay = new Replay(manifest);
-    initial.forEach((event) => replay.apply(event));
+    const reconstructor = new EvidenceReconstructor(manifest);
+    initial.forEach((event) => reconstructor.apply(event));
     const observation = initial[3].event.data;
-    replay.apply({
+    reconstructor.apply({
         schema_version: 3,
         id: "selection",
         event: {
@@ -97,7 +97,7 @@ test("rejects a backward result while preserving a submitted execution", () => {
             },
         },
     });
-    replay.apply({
+    reconstructor.apply({
         schema_version: 3,
         id: "execution-result",
         event: {
@@ -106,7 +106,7 @@ test("rejects a backward result while preserving a submitted execution", () => {
         },
     });
     expect(() =>
-        replay.apply({
+        reconstructor.apply({
             schema_version: 3,
             id: "result",
             event: {
@@ -115,10 +115,10 @@ test("rejects a backward result while preserving a submitted execution", () => {
             },
         }),
     ).toThrow("later in the same sequence");
-    expect(replay.evidence.executions.get("execution")?.status).toBe(
+    expect(reconstructor.evidence.executions.get("execution")?.status).toBe(
         "awaiting_resulting_observation",
     );
-    expect(replay.evidence.eventCount).toBe(6);
+    expect(reconstructor.evidence.eventCount).toBe(6);
 });
 
 test("verifies repeated screenshot references using one file read", async () => {

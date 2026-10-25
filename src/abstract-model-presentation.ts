@@ -1,4 +1,9 @@
-import type { AnalysisSource, DerivedEdge, DerivedNode, EvidenceReference } from "./analysis";
+import type {
+    AnalysisSource,
+    AbstractModelEdge,
+    AbstractModelNode,
+    EvidenceReference,
+} from "./analysis";
 
 export function evidenceLabel(
     sources: AnalysisSource[],
@@ -15,9 +20,9 @@ export function evidenceLabel(
     );
 }
 
-export function derivedWindow(
-    nodes: DerivedNode[],
-    edges: DerivedEdge[],
+export function abstractModelWindow(
+    nodes: AbstractModelNode[],
+    edges: AbstractModelEdge[],
     selectedNode: string,
     selectedEdge: string,
 ) {

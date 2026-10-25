@@ -2,17 +2,17 @@ import { compareIndex } from "./reconstructed-evidence";
 import type { ReconstructedEvidence } from "./reconstructed-evidence";
 import type { Observation } from "./schema";
 
-export interface ObservationGap {
+export interface ObservationOrderLink {
     id: string;
     source: string;
     target: string;
     run: string;
 }
 
-export function observationGaps(
+export function observationOrderLinks(
     evidence: ReconstructedEvidence,
     observations: Observation[],
-): ObservationGap[] {
+): ObservationOrderLink[] {
     const visible = new Set(observations.map((item) => item.id));
     const sequences = new Set(observations.map((item) => item.test_sequence));
     const completed = new Set<string>();
@@ -31,7 +31,7 @@ export function observationGaps(
             groups.set(item.test_sequence, group);
         }
     }
-    const gaps: ObservationGap[] = [];
+    const orderLinks: ObservationOrderLink[] = [];
     for (const [sequence, group] of groups) {
         group.sort((left, right) => compareIndex(left.observation_index, right.observation_index));
         for (let index = 1; index < group.length; index++) {
@@ -39,9 +39,14 @@ export function observationGaps(
             const target = group[index].id;
             const id = JSON.stringify([source, target]);
             if (visible.has(source) && visible.has(target) && !completed.has(id)) {
-                gaps.push({ id, source, target, run: evidence.sequences.get(sequence)!.test_run });
+                orderLinks.push({
+                    id,
+                    source,
+                    target,
+                    run: evidence.sequences.get(sequence)!.test_run,
+                });
             }
         }
     }
-    return gaps;
+    return orderLinks;
 }

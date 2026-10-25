@@ -47,7 +47,7 @@ export function testRunForSequence(evidence: ReconstructedEvidence, sequence: st
 export function compareIndex(left: number | bigint, right: number | bigint): number {
     return left < right ? -1 : left > right ? 1 : 0;
 }
-export class Replay {
+export class EvidenceReconstructor {
     readonly evidence: ReconstructedEvidence;
     private readonly events = new Map<string, string>();
     private readonly latest = new Map<string, Observation>();
@@ -121,7 +121,12 @@ export class Replay {
     }
     private execution(id: string): RecordedExecution {
         const record = this.evidence.executions.get(id);
-        this.require(record, "invalid_reference", "Unknown action execution.", "action_execution");
+        this.require(
+            record,
+            "invalid_reference",
+            "Observation-order link execution.",
+            "action_execution",
+        );
         return record;
     }
     private project(evidenceEvent: EvidenceEvent): void {

@@ -1,7 +1,10 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, test } from "vitest";
-import { Replay, type ReconstructedEvidence } from "../src/evidence/reconstructed-evidence";
+import {
+    EvidenceReconstructor,
+    type ReconstructedEvidence,
+} from "../src/evidence/reconstructed-evidence";
 import { manifestSchema } from "../src/evidence/schema";
 import { EvidenceError, parseJson } from "../src/evidence/common";
 import { importDirectory } from "../src/evidence/import";
@@ -74,33 +77,33 @@ export function normalized(evidence: ReconstructedEvidence) {
 for (const directory of sharedCases()) {
     describe(path.basename(directory), () => {
         const expected = JSON.parse(readFileSync(path.join(directory, "expected.json"), "utf8"));
-        test("replays the released evidence and matches its expected evidence", () => {
+        test("reconstructs the released evidence and matches the expected result", () => {
             const manifest = manifestSchema.parse(
                 JSON.parse(readFileSync(path.join(directory, "manifest.json"), "utf8")),
             );
-            const replay = new Replay(manifest);
+            const reconstructor = new EvidenceReconstructor(manifest);
             const entries = readFileSync(path.join(directory, "evidence.jsonl"), "utf8")
                 .trimEnd()
                 .split("\n");
             let failure: EvidenceError | undefined;
             for (const line of entries) {
-                const before = normalized(replay.evidence);
+                const before = normalized(reconstructor.evidence);
                 try {
                     const event = parseJson(line);
-                    replay.apply(event);
-                    replay.apply(event);
+                    reconstructor.apply(event);
+                    reconstructor.apply(event);
                 } catch (error) {
                     failure = error as EvidenceError;
-                    expect(normalized(replay.evidence)).toEqual(before);
+                    expect(normalized(reconstructor.evidence)).toEqual(before);
                     break;
                 }
             }
             if (expected.status === "rejected") {
                 expect(failure).toMatchObject(expected.error);
-                expect(normalized(replay.evidence)).toEqual(expected.accepted_prefix);
+                expect(normalized(reconstructor.evidence)).toEqual(expected.accepted_prefix);
             } else {
                 expect(failure).toBeUndefined();
-                expect(normalized(replay.evidence)).toEqual(expected);
+                expect(normalized(reconstructor.evidence)).toEqual(expected);
             }
         });
         test("validates the selected local files and artifact bytes", async () => {

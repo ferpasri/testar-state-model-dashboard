@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
-    buildDerivedModel,
-    previewMatching,
+    buildAbstractModel,
+    previewAbstraction,
     runKey,
     type AnalysisSource,
-    type MatchingDefinition,
+    type AbstractionRules,
 } from "../src/analysis";
 import { canonical } from "../src/evidence/common";
 import type {
@@ -13,7 +13,7 @@ import type {
 } from "../src/evidence/reconstructed-evidence";
 import type { Observation } from "../src/evidence/schema";
 
-const definition: MatchingDefinition = {
+const definition: AbstractionRules = {
     version: 1,
     name: "Page comparison",
     state: [{ name: "page", keys: ["ui.url"], required: true }],
@@ -118,9 +118,9 @@ function selectedRuns(sources: AnalysisSource[]): string[] {
     );
 }
 
-async function derived(sources: AnalysisSource[]) {
-    const preview = await previewMatching(sources, definition, selectedRuns(sources));
-    return { preview, model: buildDerivedModel(preview, sources) };
+async function constructModel(sources: AnalysisSource[]) {
+    const preview = await previewAbstraction(sources, definition, selectedRuns(sources));
+    return { preview, model: buildAbstractModel(preview, sources) };
 }
 
 function originalEvidence(sources: AnalysisSource[]): string {
@@ -133,10 +133,10 @@ function originalEvidence(sources: AnalysisSource[]): string {
     );
 }
 
-describe("derived nodes and original observation scope", () => {
+describe("abstract states and original observation scope", () => {
     it("retains singleton groups and gives each unmatched observation its own diagnostic node", async () => {
         const sources = [source("source", ["/login", null, null, "/home"])];
-        const { model } = await derived(sources);
+        const { model } = await constructModel(sources);
         expect(model.counts).toMatchObject({
             matchedNodes: 2,
             unmatchedNodes: 2,
@@ -159,9 +159,9 @@ describe("derived nodes and original observation scope", () => {
 
     it("recovers observations omitted from a preview as diagnostic nodes instead of dropping evidence", async () => {
         const sources = [source("source", ["/login", "/home"])];
-        const { preview } = await derived(sources);
-        preview.groups = preview.groups.filter((group) => group.members[0].sequence === 0);
-        const model = buildDerivedModel(preview, sources);
+        const { preview } = await constructModel(sources);
+        preview.groups = preview.groups.filter((group) => group.members[0].observationIndex === 0);
+        const model = buildAbstractModel(preview, sources);
         expect(model.nodes).toHaveLength(2);
         expect(model.nodes.find((node) => node.unmatchedReason)?.unmatchedReason).toContain(
             "not represented",
@@ -178,10 +178,10 @@ describe("derived nodes and original observation scope", () => {
         addExecution(first, "other-execution", 2, 3);
         const excluded = source("excluded", ["/a", "/b"]);
         addExecution(excluded, "excluded-execution", 0, 1);
-        const preview = await previewMatching([first, excluded], definition, [
+        const preview = await previewAbstraction([first, excluded], definition, [
             runKey(first.id, "awaiting_execution_result"),
         ]);
-        const model = buildDerivedModel(preview, [first, excluded]);
+        const model = buildAbstractModel(preview, [first, excluded]);
         expect(model.counts.observations).toBe(2);
         expect(model.counts.completedExecutions).toBe(1);
         expect(
@@ -200,30 +200,30 @@ describe("derived nodes and original observation scope", () => {
 
     it("validates original source fingerprints and rejects overlapping group memberships", async () => {
         const sources = [source("source", ["/a"])];
-        const { preview } = await derived(sources);
-        expect(() => buildDerivedModel(preview, [])).toThrow("missing or has changed");
+        const { preview } = await constructModel(sources);
+        expect(() => buildAbstractModel(preview, [])).toThrow("missing or has changed");
         expect(() =>
-            buildDerivedModel(preview, [{ ...sources[0], fingerprint: "changed" }]),
+            buildAbstractModel(preview, [{ ...sources[0], fingerprint: "changed" }]),
         ).toThrow("missing or has changed");
         preview.groups.push({ ...preview.groups[0], id: "other-group" });
-        expect(() => buildDerivedModel(preview, sources)).toThrow("more than one derived node");
+        expect(() => buildAbstractModel(preview, sources)).toThrow("more than one abstract state");
     });
 
     it("keeps labels concise even when selected comparison values are large", async () => {
         const sources = [source("source", ["x".repeat(10000)])];
-        const { model } = await derived(sources);
+        const { model } = await constructModel(sources);
         expect(model.nodes[0].label.length).toBeLessThanOrEqual(110);
         expect(model.nodes[0].members[0].observation).toBe("observation-0");
     });
 });
 
-describe("derived execution edges", () => {
-    it("aggregates the same directed action kind across sources without losing colliding execution IDs", async () => {
+describe("abstract transitions", () => {
+    it("aggregates the same directed action type across sources without losing colliding execution IDs", async () => {
         const sources = ["first", "second"].map((id) => source(id, ["/login", "/home"]));
         for (const item of sources) {
             addExecution(item, "execution", 0, 1);
         }
-        const { model } = await derived(sources);
+        const { model } = await constructModel(sources);
         expect(model.counts).toMatchObject({
             matchedNodes: 2,
             observations: 4,
@@ -232,7 +232,7 @@ describe("derived execution edges", () => {
             orderEdges: 0,
         });
         const edge = model.edges[0];
-        expect(edge.actionKind).toBe("click");
+        expect(edge.actionType).toBe("click");
         expect(edge.executions).toEqual([
             { source: "first", run: "run", execution: "execution" },
             { source: "second", run: "run", execution: "execution" },
@@ -247,16 +247,16 @@ describe("derived execution edges", () => {
         }
     });
 
-    it("keeps exact action kinds separate while aggregating different original actions of the same kind", async () => {
+    it("keeps exact action types separate while aggregating different original actions of the same kind", async () => {
         const item = source("source", ["/a", "/b", "/a", "/b", "/a", "/b"]);
         addExecution(item, "click-one", 0, 1, "click");
         addExecution(item, "click-two", 2, 3, "click");
         addExecution(item, "type-one", 4, 5, "type");
-        const { model } = await derived([item]);
+        const { model } = await constructModel([item]);
         const actionEdges = model.edges.filter((edge) => edge.kind === "execution");
         expect(actionEdges).toHaveLength(2);
-        expect(actionEdges.find((edge) => edge.actionKind === "click")?.executions).toHaveLength(2);
-        expect(actionEdges.find((edge) => edge.actionKind === "type")?.executions).toHaveLength(1);
+        expect(actionEdges.find((edge) => edge.actionType === "click")?.executions).toHaveLength(2);
+        expect(actionEdges.find((edge) => edge.actionType === "type")?.executions).toHaveLength(1);
         expect(model.counts.completedExecutions).toBe(3);
     });
 
@@ -265,7 +265,7 @@ describe("derived execution edges", () => {
         addExecution(item, "loop", 0, 1);
         addExecution(item, "forward", 1, 2);
         addExecution(item, "reverse", 2, 3);
-        const { model } = await derived([item]);
+        const { model } = await constructModel([item]);
         const edges = model.edges.filter((edge) => edge.kind === "execution");
         expect(edges).toHaveLength(3);
         expect(edges.filter((edge) => edge.source === edge.target)).toHaveLength(1);
@@ -287,7 +287,7 @@ describe("derived execution edges", () => {
         statuses.forEach((status, index) =>
             addExecution(item, status, index, null, "click", status),
         );
-        const { model } = await derived([item]);
+        const { model } = await constructModel([item]);
         expect(model.counts.completedExecutions).toBe(0);
         expect(model.counts.executionEdges).toBe(0);
         expect(model.counts.unlinkedExecutions).toBe(4);
@@ -305,7 +305,7 @@ describe("derived execution edges", () => {
     it("retains completed executions between diagnostic unmatched nodes", async () => {
         const item = source("source", [null, null]);
         addExecution(item, "execution", 0, 1);
-        const { model } = await derived([item]);
+        const { model } = await constructModel([item]);
         expect(model.counts).toMatchObject({
             matchedNodes: 0,
             unmatchedNodes: 2,
@@ -320,7 +320,7 @@ describe("derived execution edges", () => {
     it("preserves unusable completion records without fabricating a cross-run action edge", async () => {
         const item = source("source", ["/a", "/b"], ["first-run", "second-run"]);
         addExecution(item, "invalid-cross-run", 0, 1);
-        const { model } = await derived([item]);
+        const { model } = await constructModel([item]);
         expect(model.counts.executionEdges).toBe(0);
         expect(model.counts.unlinkedExecutions).toBe(1);
         expect(model.unlinkedExecutions[0].reason).toContain("selected run");
@@ -331,28 +331,28 @@ describe("derived execution edges", () => {
         const item = source("source", ["/a", "/b"]);
         addExecution(item, "execution", 0, 1);
         item.evidence.actions.clear();
-        const { model } = await derived([item]);
+        const { model } = await constructModel([item]);
         expect(model.counts.executionEdges).toBe(0);
         expect(model.unlinkedExecutions[0].reason).toContain("action description");
     });
 });
 
 describe("observation order and reproducibility", () => {
-    it("aggregates order links separately even when another run has a completed action between the same derived nodes", async () => {
+    it("aggregates order links separately even when another run has a completed action between the same abstract states", async () => {
         const withAction = source("action", ["/a", "/b"]);
-        const withGap = source("gap", ["/a", "/b"]);
+        const withGap = source("orderLink", ["/a", "/b"]);
         addExecution(withAction, "execution", 0, 1);
-        const { model } = await derived([withAction, withGap]);
+        const { model } = await constructModel([withAction, withGap]);
         expect(model.edges).toHaveLength(2);
         const action = model.edges.find((edge) => edge.kind === "execution")!;
-        const gap = model.edges.find((edge) => edge.kind === "observation_order")!;
-        expect(action.source).toBe(gap.source);
-        expect(action.target).toBe(gap.target);
-        expect(gap.executions).toEqual([]);
-        expect(gap.orderLinks).toEqual([
+        const orderLink = model.edges.find((edge) => edge.kind === "observation_order")!;
+        expect(action.source).toBe(orderLink.source);
+        expect(action.target).toBe(orderLink.target);
+        expect(orderLink.executions).toEqual([]);
+        expect(orderLink.orderLinks).toEqual([
             {
-                source: { source: "gap", run: "run", observation: "observation-0" },
-                target: { source: "gap", run: "run", observation: "observation-1" },
+                source: { source: "orderLink", run: "run", observation: "observation-0" },
+                target: { source: "orderLink", run: "run", observation: "observation-1" },
             },
         ]);
     });
@@ -361,7 +361,7 @@ describe("observation order and reproducibility", () => {
         const sources = ["first", "second"].map((id) =>
             source(id, ["/a", "/a", "/b"], ["one", "one", "two"]),
         );
-        const { model } = await derived(sources);
+        const { model } = await constructModel(sources);
         expect(model.counts.orderEdges).toBe(1);
         expect(model.counts.orderLinks).toBe(2);
         const edge = model.edges[0];
@@ -378,9 +378,9 @@ describe("observation order and reproducibility", () => {
             addExecution(item, "execution", 0, 1);
         }
         const before = originalEvidence(sources);
-        const { preview, model } = await derived(sources);
+        const { preview, model } = await constructModel(sources);
         const previewBefore = canonical(preview);
-        const repeated = buildDerivedModel(
+        const repeated = buildAbstractModel(
             { ...preview, groups: [...preview.groups].reverse() },
             [...sources].reverse(),
         );
