@@ -219,26 +219,44 @@ export function App() {
         directory: "",
     } as InputHTMLAttributes<HTMLInputElement>;
     return (
-        <div className="application">
+        <div className={sources.length === 0 ? "application welcome-page" : "application"}>
             <header className="topbar">
                 <div className="brand">
                     <span className="brand-mark">t.</span>
                     <div>
                         <strong>TESTAR</strong>
-                        <span>STATE MODEL / EVIDENCE EXPLORER</span>
+                        <span>STATE MODEL / EVIDENCE DASHBOARD</span>
                     </div>
                 </div>
+                {sources.length > 0 && (
+                    <nav className="workspace-views" aria-label="Workspace view">
+                        <button aria-pressed={view === "traces"} onClick={() => setView("traces")}>
+                            Trace inspection
+                        </button>
+                        <button
+                            aria-pressed={view === "matching"}
+                            onClick={() => {
+                                setMatchingOpened(true);
+                                setView("matching");
+                            }}
+                        >
+                            Construct model
+                        </button>
+                    </nav>
+                )}
                 <div className="topbar-actions">
                     <span className="local-badge">
                         <span /> Files stay in this browser
                     </span>
-                    <button
-                        className="primary"
-                        disabled={busy}
-                        onClick={() => fileInput.current?.click()}
-                    >
-                        Open evidence folder <span aria-hidden="true">↗</span>
-                    </button>
+                    {sources.length > 0 && (
+                        <button
+                            className="primary"
+                            disabled={busy}
+                            onClick={() => fileInput.current?.click()}
+                        >
+                            Add evidence folder <span aria-hidden="true">↗</span>
+                        </button>
+                    )}
                 </div>
                 <input
                     ref={fileInput}
@@ -274,42 +292,50 @@ export function App() {
             )}
             {sources.length === 0 ? (
                 <main className="welcome">
-                    <span className="eyebrow">FROM EXECUTION TO UNDERSTANDING</span>
-                    <h1>
-                        Follow the
-                        <br />
-                        <em>evidence.</em>
-                    </h1>
-                    <p>
-                        Explore what happened, one observation at a time.
-                        <br />
-                        Bring traces from your testing tools into a shared view.
-                    </p>
-                    <button
-                        className="primary large"
-                        disabled={busy}
-                        onClick={() => fileInput.current?.click()}
-                    >
-                        Open your first evidence folder <span aria-hidden="true">↗</span>
-                    </button>
+                    <div className="welcome-intro">
+                        <span className="eyebrow">TEST EVIDENCE DASHBOARD</span>
+                        <h1>Inspect your test evidence</h1>
+                        <p>
+                            Inspect individual test executions and combine their evidence into an
+                            abstract model.
+                        </p>
+                        <button
+                            className="primary large"
+                            disabled={busy}
+                            onClick={() => fileInput.current?.click()}
+                        >
+                            Open evidence folder <span aria-hidden="true">↗</span>
+                        </button>
+                    </div>
                     <div className="welcome-foot">
                         <div>
-                            <span>01 / LOAD</span>
-                            <p>Select a folder with a manifest, JSONL evidence, and artifacts.</p>
+                            <span>01 / LOAD TRACES</span>
+                            <p>
+                                Open an evidence folder, or a parent folder containing several
+                                traces.
+                            </p>
                         </div>
                         <div>
-                            <span>02 / EXPLORE</span>
-                            <p>Follow actions between visits and inspect the captured evidence.</p>
+                            <span>02 / INSPECT TRACES</span>
+                            <p>
+                                Follow each test sequence and inspect its states, actions,
+                                screenshots, widgets, properties, and oracle results.
+                            </p>
                         </div>
                         <div>
-                            <span>03 / COMPARE</span>
-                            <p>Open more sources while preserving each original trace.</p>
+                            <span>03 / BUILD AN ABSTRACT MODEL</span>
+                            <p>
+                                Combine traces using abstraction rules to reveal shared states and
+                                transitions. Each part keeps links to the original evidence.
+                            </p>
                         </div>
                     </div>
                 </main>
             ) : (
-                <main className="workspace">
-                    <aside className="sidebar">
+                <main
+                    className={view === "matching" ? "workspace constructing-model" : "workspace"}
+                >
+                    <aside className="sidebar" hidden={view !== "traces"}>
                         <div className="sidebar-title">
                             <span className="eyebrow">YOUR WORKSPACE</span>
                             <span className="badge">
@@ -331,23 +357,7 @@ export function App() {
                                 <span>evaluations</span>
                             </div>
                         </div>
-                        <nav className="workspace-views" aria-label="Workspace view">
-                            <button
-                                aria-pressed={view === "traces"}
-                                onClick={() => setView("traces")}
-                            >
-                                Trace inspection
-                            </button>
-                            <button
-                                aria-pressed={view === "matching"}
-                                onClick={() => {
-                                    setMatchingOpened(true);
-                                    setView("matching");
-                                }}
-                            >
-                                Matching preview
-                            </button>
-                        </nav>
+
                         <div className="source-list">
                             {sources.map((item) => (
                                 <section className="source" key={item.id}>
@@ -413,50 +423,46 @@ export function App() {
                             </Suspense>
                         </div>
                     )}
-                    {view === "matching" ? null : source ? (
-                        <div className="run-workspace">
+                    {source ? (
+                        <div className="run-workspace" hidden={view !== "traces"}>
                             <div className="run-banner">
-                                <div>
-                                    <span className="eyebrow">SELECTED RUN</span>
+                                <div className="run-identity">
                                     <h2>{source.evidence.runs.get(runId)?.producer}</h2>
-                                    <label>
-                                        Test sequence
-                                        <select
-                                            aria-label="Test sequence"
-                                            value={sequenceId}
-                                            onChange={(event) => {
-                                                setSequenceId(event.target.value);
-                                                setObservationId("");
-                                                setExecutionId("");
-                                                setGapId("");
-                                            }}
-                                        >
-                                            <option value="">All test sequences</option>
-                                            {[...source.evidence.sequences.values()]
-                                                .filter((sequence) => sequence.test_run === runId)
-                                                .sort((a, b) =>
-                                                    compareIndex(
-                                                        a.sequence_index,
-                                                        b.sequence_index,
-                                                    ),
-                                                )
-                                                .map((sequence) => (
-                                                    <option key={sequence.id} value={sequence.id}>
-                                                        {"Sequence " +
-                                                            sequence.sequence_index +
-                                                            " · " +
-                                                            sequence.status +
-                                                            " · " +
-                                                            sequence.source_sequence}
-                                                    </option>
-                                                ))}
-                                        </select>
-                                    </label>
                                     <p>
                                         {source.evidence.runs.get(runId)?.reason ??
                                             "Run is still open"}
                                     </p>
                                 </div>
+                                <label className="sequence-filter">
+                                    Test sequence
+                                    <select
+                                        aria-label="Test sequence"
+                                        value={sequenceId}
+                                        onChange={(event) => {
+                                            setSequenceId(event.target.value);
+                                            setObservationId("");
+                                            setExecutionId("");
+                                            setGapId("");
+                                        }}
+                                    >
+                                        <option value="">All test sequences</option>
+                                        {[...source.evidence.sequences.values()]
+                                            .filter((sequence) => sequence.test_run === runId)
+                                            .sort((a, b) =>
+                                                compareIndex(a.sequence_index, b.sequence_index),
+                                            )
+                                            .map((sequence) => (
+                                                <option key={sequence.id} value={sequence.id}>
+                                                    {"Sequence " +
+                                                        sequence.sequence_index +
+                                                        " · " +
+                                                        sequence.status +
+                                                        " · " +
+                                                        sequence.source_sequence}
+                                                </option>
+                                            ))}
+                                    </select>
+                                </label>
                                 <div className="run-count">
                                     {observations.length}
                                     <span>observations</span>
@@ -613,9 +619,9 @@ export function App() {
                             )}
                         </div>
                     ) : (
-                        <div className="choose-run">
+                        <div className="choose-run" hidden={view !== "traces"}>
                             <h1>Select a run</h1>
-                            <p>Choose an imported run to explore its evidence.</p>
+                            <p>Choose an imported run to inspect its evidence.</p>
                         </div>
                     )}
                 </main>

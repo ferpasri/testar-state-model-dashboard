@@ -122,7 +122,7 @@ async function openModelDirectories(page: Page, directories: string[]): Promise<
         await page.getByLabel("Evidence directory").setInputFiles(directory);
         await expect(page.locator(".source")).toHaveCount(index + 1);
     }
-    await page.getByRole("button", { name: "Matching preview", exact: true }).click();
+    await page.getByRole("button", { name: "Construct model", exact: true }).click();
     await page
         .getByLabel("Matching preset", { exact: true })
         .selectOption({ label: "Page address" });
@@ -130,7 +130,9 @@ async function openModelDirectories(page: Page, directories: string[]): Promise<
     await expect(page.getByRole("heading", { name: "Proposed groups", exact: true })).toBeVisible();
     await page.getByRole("button", { name: "Derived model", exact: true }).click();
     await expect(page.locator(".derived-graph canvas").first()).toBeVisible();
-    await page.getByLabel("Show observation-order links", { exact: true }).uncheck();
+    await page
+        .getByRole("checkbox", { name: "Show observation-order links", exact: true })
+        .uncheck();
 }
 
 async function openModel(page: Page, info: TestInfo): Promise<void> {

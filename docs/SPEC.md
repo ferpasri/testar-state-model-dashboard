@@ -50,7 +50,7 @@ Evaluation lists also filter reports by supplied assessment phase: during run, e
 
 ## Matching across runs
 
-The **Matching preview** view compares selected runs from the imported sources. Its shared evidence index scopes identities by source and by the record's run or observation where applicable. Reused IDs in independent sources remain separate. The index counts selected observations, widgets, referenced action descriptions, and executions.
+The **Construct model** view compares selected runs from the imported sources. Its shared evidence index scopes identities by source and by the record's run or observation where applicable. Reused IDs in independent sources remain separate. The index counts selected observations, widgets, referenced action descriptions, and executions.
 
 Users choose a built-in preset or edit a JSON definition. Both paths use the same versioned interpreter. The definition selects state properties and optional widget properties, with ordered alternative names for each field. Comparison preserves exact JSON values, including large integers and explicit nulls. A missing optional property has its own representation. Missing required fields, unsuitable transform values, and observations without selected captured values produce unmatched explanations.
 
@@ -132,3 +132,5 @@ These file-size limits bound input, rather than promising the same amount of bro
 Development tooling downloads the newest published specs release, including prereleases, and records its selection and file hashes under ignored `.cache/specs/`. Tests validate that cache and discover all released conformance cases. Preparation checks the network; subsequent tests use the selected data offline.
 
 Unit tests cover accepted/rejected cases, accepted prefixes, replay behavior, identities, integrity, exact numbers, unsafe input, and matching policies. Matching checks include scoped identities, normalization, widget filtering, hierarchy, missing values, membership, provenance, and processing limits. Browser tests exercise the production build, including directory selection, screenshots, malformed labels, independent sources, mobile layout, cancellation, matching and derived-model navigation, and the runtime network boundary.
+
+The top bar switches between **Trace inspection** and **Construct model**. Switching keeps the selected observation, inspector tab, comparison rules, and constructed model in memory. A model calculation continues while the trace view is visible. Reloading the page clears the workspace.

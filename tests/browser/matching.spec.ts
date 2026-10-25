@@ -53,7 +53,7 @@ async function importSources(
         await page.getByLabel("Evidence directory").setInputFiles(directory);
         await expect(page.locator(".source")).toHaveCount(index + 1);
     }
-    await page.getByRole("button", { name: "Matching preview", exact: true }).click();
+    await page.getByRole("button", { name: "Construct model", exact: true }).click();
     await expect(
         page.getByRole("heading", { name: "Match evidence across runs", exact: true }),
     ).toBeVisible();
@@ -174,7 +174,7 @@ test("normalizes only explicitly selected data and invalidates previews when inp
         .getByRole("button", { name: "Open original observation", exact: true })
         .click();
     await expect(page.locator(".details .detail-title")).toContainText("Original source-b-tool");
-    await page.getByRole("button", { name: "Matching preview", exact: true }).click();
+    await page.getByRole("button", { name: "Construct model", exact: true }).click();
     await expect(page.getByRole("heading", { name: "Proposed groups", exact: true })).toBeVisible();
     expect(
         JSON.parse(await page.getByLabel("Matching definition", { exact: true }).inputValue()),

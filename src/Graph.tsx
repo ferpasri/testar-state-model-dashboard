@@ -242,7 +242,7 @@ export function Graph({
                         )
                     </>
                 )}
-                <span className="graph-hint">Scroll to zoom · Drag to explore</span>
+                <span className="graph-hint">Scroll to zoom · Drag to pan</span>
             </div>
         </section>
     );

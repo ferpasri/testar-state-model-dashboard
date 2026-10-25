@@ -323,7 +323,7 @@ export function DerivedGraph({
                 <span className="legend-dot" /> State group
                 <span className="legend-line" /> Recorded execution
                 <span className="legend-gap" /> Observation order only
-                <span className="graph-hint">Scroll to zoom / Drag to explore</span>
+                <span className="graph-hint">Scroll to zoom / Drag to pan</span>
             </div>
         </section>
     );

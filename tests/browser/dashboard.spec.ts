@@ -131,9 +131,7 @@ test("cancels a running import without adding partial evidence", async ({ page }
     await page.getByLabel("Evidence directory").setInputFiles(directory);
     await page.getByRole("button", { name: "Cancel import", exact: true }).click();
     await expect(page.getByRole("status")).toHaveCount(0);
-    await expect(
-        page.getByRole("button", { name: "Open your first evidence folder" }),
-    ).toBeVisible();
+    await expect(page.getByRole("button", { name: "Open evidence folder" })).toBeVisible();
     await expect(page.locator(".source")).toHaveCount(0);
 });
 

@@ -69,7 +69,7 @@ async function openDerivedModel(page: Page, directories: string[]): Promise<void
         await page.getByLabel("Evidence directory").setInputFiles(directory);
         await expect(page.locator(".source")).toHaveCount(index + 1);
     }
-    await page.getByRole("button", { name: "Matching preview", exact: true }).click();
+    await page.getByRole("button", { name: "Construct model", exact: true }).click();
     await page
         .getByLabel("Matching preset", { exact: true })
         .selectOption({ label: "Page address" });
@@ -85,7 +85,9 @@ async function openDerivedModel(page: Page, directories: string[]): Promise<void
             .locator("canvas")
             .first(),
     ).toBeVisible();
-    await page.getByLabel("Show observation-order links", { exact: true }).uncheck();
+    await page
+        .getByRole("checkbox", { name: "Show observation-order links", exact: true })
+        .uncheck();
 }
 
 test("combines recorded transitions while preserving source-scoped execution and observation navigation", async ({
@@ -150,7 +152,7 @@ test("combines recorded transitions while preserving source-scoped execution and
     await expect(page.locator(".details")).toContainText(
         "example:broader-check-targets:execution:1",
     );
-    await page.getByRole("button", { name: "Matching preview", exact: true }).click();
+    await page.getByRole("button", { name: "Construct model", exact: true }).click();
     await expect(
         page.getByRole("heading", { name: "Derived state model", exact: true }),
     ).toBeVisible();
@@ -165,7 +167,7 @@ test("combines recorded transitions while preserving source-scoped execution and
         .click();
     await expect(page.locator(".details .detail-title h2")).toHaveText(/^Observation [123]$/u);
     await expect(page.locator(".run.active")).toContainText("source-b-tool");
-    await page.getByRole("button", { name: "Matching preview", exact: true }).click();
+    await page.getByRole("button", { name: "Construct model", exact: true }).click();
     await expect(page.locator(".derived-member")).toHaveCount(2);
     await page.setViewportSize({ width: 390, height: 844 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(
@@ -183,7 +185,7 @@ test("keeps observation-order links separate and highlights a run without removi
     ]);
     await expect(page.locator('.derived-edge[data-kind="execution"]')).toHaveCount(1);
     await expect(page.locator('.derived-edge[data-kind="observation_order"]')).toHaveCount(0);
-    await page.getByLabel("Show observation-order links", { exact: true }).check();
+    await page.getByRole("checkbox", { name: "Show observation-order links", exact: true }).check();
     const orderLink = page.locator('.derived-edge[data-kind="observation_order"]');
     await expect(orderLink).toHaveCount(1);
     await orderLink.click();
@@ -199,7 +201,7 @@ test("keeps observation-order links separate and highlights a run without removi
         .click();
     await expect(page.getByRole("heading", { name: "Observation 3", exact: true })).toBeVisible();
     await expect(page.locator(".run.active")).toContainText("source-b-tool");
-    await page.getByRole("button", { name: "Matching preview", exact: true }).click();
+    await page.getByRole("button", { name: "Construct model", exact: true }).click();
     const highlight = page.getByLabel("Highlight run", { exact: true });
     const selectedRun = highlight.locator("option").filter({ hasText: "source-b-tool" });
     const value = await selectedRun.getAttribute("value");
@@ -209,7 +211,9 @@ test("keeps observation-order links separate and highlights a run without removi
     await expect(page.locator(".derived-node")).toHaveCount(3);
     await expect(page.locator(".derived-edge")).toHaveCount(2);
     await highlight.selectOption("all");
-    await page.getByLabel("Show observation-order links", { exact: true }).uncheck();
+    await page
+        .getByRole("checkbox", { name: "Show observation-order links", exact: true })
+        .uncheck();
     await expect(page.locator('.derived-edge[data-kind="observation_order"]')).toHaveCount(0);
     await expect(page.locator('.derived-edge[data-kind="execution"]')).toHaveCount(1);
     await expect(page.locator(".derived-node")).toHaveCount(3);
@@ -246,4 +250,42 @@ test("selects a recorded transition directly on the derived-model canvas", async
     ).toBeVisible();
     await expect(transition).toHaveAttribute("aria-pressed", "true");
     await expect(page.locator(".derived-execution")).toHaveCount(1);
+});
+
+test("switches views in the top bar while retaining trace inspection and the constructed model", async ({
+    page,
+}, info) => {
+    await openDerivedModel(page, [sourceVariant(info, "retained-trace")]);
+    const navigation = page.getByRole("banner").getByRole("navigation", { name: "Workspace view" });
+    await page.getByLabel("Model layout", { exact: true }).selectOption("circular");
+    const canvas = await page.locator(".derived-graph").elementHandle();
+    const stateCount = await page.locator(".derived-node").count();
+    await navigation.getByRole("button", { name: "Trace inspection", exact: true }).click();
+    await page.getByRole("button", { name: "Next observation", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Observation 2", exact: true })).toBeVisible();
+    await page.getByRole("button", { name: "Widgets", exact: true }).click();
+    await page.getByLabel("Find a widget").fill("next");
+    const traceCanvas = await page.locator(".graph").elementHandle();
+    const graphBounds = await page.getByRole("region", { name: "Execution graph" }).boundingBox();
+    expect(graphBounds!.y).toBeLessThan(200);
+    await navigation.getByRole("button", { name: "Construct model", exact: true }).click();
+    await expect(page.getByLabel("Model layout", { exact: true })).toHaveValue("circular");
+    await expect(page.locator(".derived-node")).toHaveCount(stateCount);
+    expect(
+        await page
+            .locator(".derived-graph")
+            .evaluate((element, original) => element === original, canvas),
+    ).toBe(true);
+    await navigation.getByRole("button", { name: "Trace inspection", exact: true }).click();
+    await expect(page.getByRole("heading", { name: "Observation 2", exact: true })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Widgets", exact: true })).toHaveAttribute(
+        "aria-pressed",
+        "true",
+    );
+    await expect(page.getByLabel("Find a widget")).toHaveValue("next");
+    expect(
+        await page
+            .locator(".graph")
+            .evaluate((element, original) => element === original, traceCanvas),
+    ).toBe(true);
 });

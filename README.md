@@ -1,6 +1,6 @@
 # testar-state-model-dashboard
 
-A web application for exploring test evidence from tools that follow [testar-evidence-specs](https://github.com/ferpasri/testar-evidence-specs).
+A web application for inspecting test evidence from tools that follow [testar-evidence-specs](https://github.com/ferpasri/testar-evidence-specs).
 
 Select a local evidence folder to inspect its test runs, test sequences, ordered observations, action executions, screenshots, widgets, properties, and test-oracle results. Multiple sources can share one workspace while retaining their own identities and execution history. A recorded action connects its before and resulting observations, forming a state-action-state execution trace. Trace folder names help people recognize recordings; the dashboard uses manifest and event identities to load evidence and the selected matching rules to derive models.
 
@@ -25,7 +25,7 @@ In **Evaluations**, click a status to filter results. When assessment phases are
 
 In **Evaluations**, click a status to filter results. **Coverage** lists captured visits, widgets, and properties with no recorded evaluation; a missing result does not prove an oracle never ran. Dashed graph links connect consecutive observations without a recorded completed action. Click one to inspect what is known, or hide them with **Show observation-order links**.
 
-Choose **Matching preview** to connect visits across selected runs. Start with **Page address and title**, inspect or edit the JSON rules, and click **Preview matches**. This preset compares the captured address and title, so different titles can keep visits separate even at the same address. **Page address** compares only the address; **Page and widget structure** adds widget descriptions to the address and title. The proposed groups retain comparison explanations and links to every original visit. Session parameters are preserved unless you explicitly remove named parameters in the [matching rules](docs/abstraction.md#a-small-json-language).
+Choose **Construct model** to connect visits across selected runs. Start with **Page address and title**, inspect or edit the JSON rules, and click **Preview matches**. This preset compares the captured address and title, so different titles can keep visits separate even at the same address. **Page address** compares only the address; **Page and widget structure** adds widget descriptions to the address and title. The proposed groups retain comparison explanations and links to every original visit. Session parameters are preserved unless you explicitly remove named parameters in the [matching rules](docs/abstraction.md#a-small-json-language).
 
 Switch to **Derived model** to see a combined graph. Click a state or arrow to inspect its contributing visits or executions. Choose a layout and the labels to display, then highlight a source or run to follow its evidence. **Show only selected source/run** restricts the view and inspector to that evidence. Solid arrows summarize completed actions; dashed arrows show observation order where the action is unknown. Visits that could not be matched remain separate nodes with an explanation.
 
@@ -67,3 +67,5 @@ The application uses TypeScript, React, Vite, Cytoscape.js, Web Workers, Vitest,
 Releases use `0.X.Y`. The `0.X` series is shared with the specs and related state-model projects. Each project increments `Y` independently for fixes and improvements within that series. Evidence compatibility is checked using its `schema_version` and validation rules.
 
 See [implemented behavior and limits](docs/SPEC.md), [the architecture](docs/architecture.md), [matching rules and examples](docs/abstraction.md), and [TODO.md](TODO.md).
+
+The top bar switches between **Trace inspection** and **Construct model**. Switching keeps the selected observation, inspector tab, comparison rules, and constructed model in memory. A model calculation continues while the trace view is visible. Reloading the page clears the workspace.

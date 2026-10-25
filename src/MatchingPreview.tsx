@@ -79,12 +79,6 @@ export function MatchingPreview({ sources, active, onOpenObservation, onOpenExec
         };
     }, [sources]);
 
-    useEffect(() => {
-        if (!active) {
-            cancel();
-        }
-    }, [active]);
-
     function cancel() {
         worker.current?.terminate();
         worker.current = null;
