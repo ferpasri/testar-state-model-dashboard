@@ -40,6 +40,7 @@ function downloadJson(name: string, value: unknown) {
 
 export function MatchingPreview({ sources, active, onOpenObservation, onOpenExecution }: Props) {
     const [preset, setPreset] = useState("0");
+    const [setupOpen, setSetupOpen] = useState(true);
     const [definition, setDefinition] = useState(() => formatJson(DEFAULT_PRESETS[0].definition));
     const [excludedRuns, setExcludedRuns] = useState<Set<string>>(new Set());
     const [runLimit, setRunLimit] = useState(50);
@@ -65,6 +66,7 @@ export function MatchingPreview({ sources, active, onOpenObservation, onOpenExec
     const selectedRuns = runs.filter((run) => !excludedRuns.has(run.key)).map((run) => run.key);
 
     useEffect(() => {
+        setSetupOpen(true);
         setPreview(null);
         setModel(null);
         setResultView("groups");
@@ -78,6 +80,12 @@ export function MatchingPreview({ sources, active, onOpenObservation, onOpenExec
             worker.current = null;
         };
     }, [sources]);
+
+    useEffect(() => {
+        if (preview && active) {
+            window.scrollTo({ top: 0, behavior: "instant" });
+        }
+    }, [preview]);
 
     function cancel() {
         worker.current?.terminate();
@@ -115,6 +123,9 @@ export function MatchingPreview({ sources, active, onOpenObservation, onOpenExec
                 } else if (result.kind === "complete") {
                     setPreview(result.preview);
                     setModel(result.model);
+                    setDerivedOpened(true);
+                    setResultView("derived");
+                    setSetupOpen(false);
                     cancel();
                 } else if (result.kind === "error") {
                     setError(result.message);
@@ -145,104 +156,121 @@ export function MatchingPreview({ sources, active, onOpenObservation, onOpenExec
 
     return (
         <div className="matching-workspace">
-            <div className="matching-heading">
+            <div className="matching-heading" hidden={preview !== null}>
                 <span className="eyebrow">COMPARE RECORDED EVIDENCE</span>
                 <h1>Match evidence across runs</h1>
+            </div>
+            <details
+                className="model-setup"
+                open={setupOpen}
+                onToggle={(event) => setSetupOpen(event.currentTarget.open)}
+            >
+                <summary>
+                    Model setup{" "}
+                    <span>
+                        {selectedRuns.length} runs ·{" "}
+                        {preset === "custom"
+                            ? "Custom rules"
+                            : DEFAULT_PRESETS[Number(preset)].name}
+                    </span>
+                </summary>
                 <p>
                     Select the evidence and the properties that matter for your testing objective.
                     Preview which observations agree, then inspect their original records.
                 </p>
-            </div>
-            <div className="matching-controls">
-                <section className="matching-panel">
-                    <h2>Runs to compare</h2>
-                    <p className="muted">
-                        {selectedRuns.length} of {runs.length} runs selected.
-                    </p>
-                    <div className="matching-runs">
-                        {runs.slice(0, runLimit).map((run) => (
-                            <label className="matching-run compact-toggle" key={run.key}>
-                                <input
-                                    type="checkbox"
-                                    checked={!excludedRuns.has(run.key)}
-                                    onChange={(event) => {
-                                        invalidate();
-                                        const next = new Set(excludedRuns);
-                                        if (event.target.checked) {
-                                            next.delete(run.key);
-                                        } else {
-                                            next.add(run.key);
-                                        }
-                                        setExcludedRuns(next);
-                                    }}
-                                />
-                                <span>{run.label}</span>
-                            </label>
-                        ))}
-                    </div>
-                    {runs.length > runLimit && (
-                        <button className="quiet" onClick={() => setRunLimit(runLimit + 50)}>
-                            Show more runs
-                        </button>
-                    )}
-                </section>
-                <section className="matching-panel">
-                    <h2>Comparison rules</h2>
-                    <label className="search-label">
-                        Matching preset
-                        <select
-                            aria-label="Matching preset"
-                            value={preset}
-                            onChange={(event) => {
-                                invalidate();
-                                setPreset(event.target.value);
-                                setDefinition(
-                                    formatJson(
-                                        DEFAULT_PRESETS[Number(event.target.value)].definition,
-                                    ),
-                                );
-                            }}
-                        >
-                            {DEFAULT_PRESETS.map((item, index) => (
-                                <option value={index} key={item.name}>
-                                    {item.name}
-                                </option>
+                <div className="matching-controls">
+                    <section className="matching-panel">
+                        <h2>Runs to compare</h2>
+                        <p className="muted">
+                            {selectedRuns.length} of {runs.length} runs selected.
+                        </p>
+                        <div className="matching-runs">
+                            {runs.slice(0, runLimit).map((run) => (
+                                <label className="matching-run compact-toggle" key={run.key}>
+                                    <input
+                                        type="checkbox"
+                                        checked={!excludedRuns.has(run.key)}
+                                        onChange={(event) => {
+                                            invalidate();
+                                            const next = new Set(excludedRuns);
+                                            if (event.target.checked) {
+                                                next.delete(run.key);
+                                            } else {
+                                                next.add(run.key);
+                                            }
+                                            setExcludedRuns(next);
+                                        }}
+                                    />
+                                    <span>{run.label}</span>
+                                </label>
                             ))}
-                            {preset === "custom" && <option value="custom">Custom rules</option>}
-                        </select>
-                    </label>
-                    <p className="muted">
-                        {preset === "custom"
-                            ? "The JSON definition controls which captured values are compared."
-                            : DEFAULT_PRESETS[Number(preset)].description}
-                    </p>
-                    <details>
-                        <summary>Edit matching rules (JSON)</summary>
-                        <textarea
-                            aria-label="Matching definition"
-                            spellCheck={false}
-                            value={definition}
-                            onChange={(event) => {
-                                invalidate();
-                                setPreset("custom");
-                                setDefinition(event.target.value);
-                            }}
-                        />
-                    </details>
-                    <div className="matching-actions">
-                        <button
-                            className="primary"
-                            disabled={selectedRuns.length === 0 || busy}
-                            onClick={start}
-                        >
-                            Preview matches
-                        </button>
-                        <button className="quiet" onClick={downloadRules}>
-                            Download rules
-                        </button>
-                    </div>
-                </section>
-            </div>
+                        </div>
+                        {runs.length > runLimit && (
+                            <button className="quiet" onClick={() => setRunLimit(runLimit + 50)}>
+                                Show more runs
+                            </button>
+                        )}
+                    </section>
+                    <section className="matching-panel">
+                        <h2>Comparison rules</h2>
+                        <label className="search-label">
+                            Matching preset
+                            <select
+                                aria-label="Matching preset"
+                                value={preset}
+                                onChange={(event) => {
+                                    invalidate();
+                                    setPreset(event.target.value);
+                                    setDefinition(
+                                        formatJson(
+                                            DEFAULT_PRESETS[Number(event.target.value)].definition,
+                                        ),
+                                    );
+                                }}
+                            >
+                                {DEFAULT_PRESETS.map((item, index) => (
+                                    <option value={index} key={item.name}>
+                                        {item.name}
+                                    </option>
+                                ))}
+                                {preset === "custom" && (
+                                    <option value="custom">Custom rules</option>
+                                )}
+                            </select>
+                        </label>
+                        <p className="muted">
+                            {preset === "custom"
+                                ? "The JSON definition controls which captured values are compared."
+                                : DEFAULT_PRESETS[Number(preset)].description}
+                        </p>
+                        <details>
+                            <summary>Edit matching rules (JSON)</summary>
+                            <textarea
+                                aria-label="Matching definition"
+                                spellCheck={false}
+                                value={definition}
+                                onChange={(event) => {
+                                    invalidate();
+                                    setPreset("custom");
+                                    setDefinition(event.target.value);
+                                }}
+                            />
+                        </details>
+                        <div className="matching-actions">
+                            <button
+                                className="primary"
+                                disabled={selectedRuns.length === 0 || busy}
+                                onClick={start}
+                            >
+                                Build model
+                            </button>
+                            <button className="quiet" onClick={downloadRules}>
+                                Download rules
+                            </button>
+                        </div>
+                    </section>
+                </div>
+            </details>
             {error && (
                 <p className="notice matching-error" role="alert">
                     {error}
@@ -261,18 +289,6 @@ export function MatchingPreview({ sources, active, onOpenObservation, onOpenExec
             )}
             {preview ? (
                 <>
-                    <div className="matching-actions">
-                        <span className="muted">
-                            {preview.counts.observations} observations compared under{" "}
-                            {preview.definition.name}.
-                        </span>
-                        <button
-                            className="quiet"
-                            onClick={() => downloadJson("matching-preview.json", preview)}
-                        >
-                            Download preview
-                        </button>
-                    </div>
                     <nav className="result-views" aria-label="Analysis view">
                         <button
                             aria-pressed={resultView === "groups"}
@@ -288,6 +304,12 @@ export function MatchingPreview({ sources, active, onOpenObservation, onOpenExec
                             }}
                         >
                             Derived model
+                        </button>
+                        <button
+                            className="quiet"
+                            onClick={() => downloadJson("matching-preview.json", preview)}
+                        >
+                            Download preview
                         </button>
                         {model && (
                             <button

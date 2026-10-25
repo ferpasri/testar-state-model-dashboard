@@ -1,3 +1,4 @@
+import { openRenderingOptions } from "./model-controls";
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
 import type { Core } from "cytoscape";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -126,9 +127,10 @@ async function openModelDirectories(page: Page, directories: string[]): Promise<
     await page
         .getByLabel("Matching preset", { exact: true })
         .selectOption({ label: "Page address" });
-    await page.getByRole("button", { name: "Preview matches", exact: true }).click();
-    await expect(page.getByRole("heading", { name: "Proposed groups", exact: true })).toBeVisible();
-    await page.getByRole("button", { name: "Derived model", exact: true }).click();
+    await page.getByRole("button", { name: "Build model", exact: true }).click();
+    await expect(
+        page.getByRole("heading", { name: "Derived state model", exact: true }),
+    ).toBeVisible();
     await expect(page.locator(".derived-graph canvas").first()).toBeVisible();
     await page
         .getByRole("checkbox", { name: "Show observation-order links", exact: true })
@@ -205,6 +207,7 @@ test("changes graph layouts while label and highlight controls preserve node pos
     const errors: string[] = [];
     page.on("pageerror", (error) => errors.push(error.message));
     await openModel(page, info);
+    await openRenderingOptions(page);
     const layout = page.getByLabel("Model layout", { exact: true });
     await expect(layout).toHaveValue("force");
     const force = await snapshot(page);
@@ -251,6 +254,7 @@ test("changes graph layouts while label and highlight controls preserve node pos
     for (const node of await dimmed()) {
         expect(node.opacity).toBeCloseTo(0.18);
     }
+    await openRenderingOptions(page);
     const dimming = page.getByLabel("Dim other evidence", { exact: true });
     await dimming.focus();
     await dimming.press("Home");

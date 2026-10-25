@@ -114,9 +114,8 @@ export function DerivedModelView({
     return (
         <section className="derived-workspace" aria-label="Derived model">
             <p className="muted">
-                States follow the rule set "{preview.definition.name}". A path through merged states
-                can combine different runs; inspect or highlight a run to identify its recorded
-                evidence.
+                Abstraction rules: "{preview.definition.name}". Model paths may combine different
+                test runs; highlight a run to inspect its recorded evidence.
             </p>
             <div className="derived-summary">
                 <span>{model.nodes.length} states</span>
@@ -124,77 +123,87 @@ export function DerivedModelView({
                 <span>{model.counts.unlinkedExecutions} executions without a connected result</span>
                 <span>{model.counts.unmatchedNodes} unmatched observations</span>
             </div>
-            <div className="derived-controls matching-panel">
-                <label className="search-label">
-                    Highlight source
-                    <select
-                        aria-label="Highlight source"
-                        value={sourceFilter}
-                        onChange={(event) => {
-                            setSourceFilter(event.target.value);
-                            setRunFilter("all");
-                        }}
-                    >
-                        <option value="all">All sources</option>
-                        {preview.inputScope.sources.map((source) => (
-                            <option key={source.id} value={source.id}>
-                                {source.label}
-                            </option>
-                        ))}
-                    </select>
-                </label>
-                <label className="search-label">
-                    Highlight run
-                    <select
-                        aria-label="Highlight run"
-                        value={runFilter}
-                        onChange={(event) => setRunFilter(event.target.value)}
-                    >
-                        <option value="all">All runs</option>
-                        {preview.inputScope.runs
-                            .filter((run) => sourceFilter === "all" || run.source === sourceFilter)
-                            .map((run) => (
-                                <option
-                                    value={runKey(run.source, run.run)}
-                                    key={runKey(run.source, run.run)}
-                                >
-                                    {evidenceLabel(sources, run)}
+            <div className="model-tools">
+                <div className="derived-controls matching-panel">
+                    <label className="search-label">
+                        Highlight source
+                        <select
+                            aria-label="Highlight source"
+                            value={sourceFilter}
+                            onChange={(event) => {
+                                setSourceFilter(event.target.value);
+                                setRunFilter("all");
+                            }}
+                        >
+                            <option value="all">All sources</option>
+                            {preview.inputScope.sources.map((source) => (
+                                <option key={source.id} value={source.id}>
+                                    {source.label}
                                 </option>
                             ))}
-                    </select>
-                </label>
-                <label className="compact-toggle">
-                    <input
-                        type="checkbox"
-                        checked={showOrderLinks}
-                        onChange={(event) => {
-                            setShowOrderLinks(event.target.checked);
-                            if (!event.target.checked && selected?.kind === "observation_order") {
-                                setSelectedEdge("");
-                            }
-                        }}
-                    />
-                    Show observation-order links
-                </label>
-                <label className="compact-toggle">
-                    <input
-                        type="checkbox"
-                        checked={showOnlySelected}
-                        onChange={(event) => setShowOnlySelected(event.target.checked)}
-                    />
-                    Show only selected source/run
-                </label>
-                {highlighting && (
-                    <p className="muted">
-                        Highlighted: {highlighted.nodes.size} states / {highlighted.edges.size}{" "}
-                        links.{" "}
-                        {showOnlySelected
-                            ? "Only supporting evidence is shown."
-                            : "Other evidence remains visible."}
-                    </p>
-                )}
+                        </select>
+                    </label>
+                    <label className="search-label">
+                        Highlight run
+                        <select
+                            aria-label="Highlight run"
+                            value={runFilter}
+                            onChange={(event) => setRunFilter(event.target.value)}
+                        >
+                            <option value="all">All runs</option>
+                            {preview.inputScope.runs
+                                .filter(
+                                    (run) => sourceFilter === "all" || run.source === sourceFilter,
+                                )
+                                .map((run) => (
+                                    <option
+                                        value={runKey(run.source, run.run)}
+                                        key={runKey(run.source, run.run)}
+                                    >
+                                        {evidenceLabel(sources, run)}
+                                    </option>
+                                ))}
+                        </select>
+                    </label>
+                    <label className="compact-toggle">
+                        <input
+                            type="checkbox"
+                            checked={showOrderLinks}
+                            onChange={(event) => {
+                                setShowOrderLinks(event.target.checked);
+                                if (
+                                    !event.target.checked &&
+                                    selected?.kind === "observation_order"
+                                ) {
+                                    setSelectedEdge("");
+                                }
+                            }}
+                        />
+                        Show observation-order links
+                    </label>
+                    <label className="compact-toggle">
+                        <input
+                            type="checkbox"
+                            checked={showOnlySelected}
+                            onChange={(event) => setShowOnlySelected(event.target.checked)}
+                        />
+                        Show only selected source/run
+                    </label>
+                    {highlighting && (
+                        <p className="muted">
+                            Highlighted: {highlighted.nodes.size} states / {highlighted.edges.size}{" "}
+                            links.{" "}
+                            {showOnlySelected
+                                ? "Only supporting evidence is shown."
+                                : "Other evidence remains visible."}
+                        </p>
+                    )}
+                </div>
+                <details className="render-options">
+                    <summary>Rendering options</summary>
+                    <DerivedRenderControls options={options} onChange={setOptions} />
+                </details>
             </div>
-            <DerivedRenderControls options={options} onChange={setOptions} />
             {showOnlySelected && highlighting && (
                 <p className="derived-scope-summary notice">
                     Selected source/run: {displayModel.nodes.length} states,{" "}

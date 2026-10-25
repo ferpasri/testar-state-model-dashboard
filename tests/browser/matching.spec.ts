@@ -1,3 +1,4 @@
+import { openModelSetup } from "./model-controls";
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
@@ -63,19 +64,26 @@ async function importSources(
 }
 
 async function previewMatches(page: Page): Promise<void> {
-    await page.getByRole("button", { name: "Preview matches", exact: true }).click();
+    await openModelSetup(page);
+    await page.getByRole("button", { name: "Build model", exact: true }).click();
+    await page.getByRole("button", { name: "Matching groups", exact: true }).click();
     await expect(page.getByRole("heading", { name: "Proposed groups", exact: true })).toBeVisible();
 }
 
 async function editRules(page: Page, definition: unknown): Promise<void> {
+    await openModelSetup(page);
     const editor = page.getByLabel("Matching definition", { exact: true });
     if (!(await editor.isVisible())) {
+        await openModelSetup(page);
         await page.getByText("Edit matching rules (JSON)", { exact: true }).click();
     }
     await editor.fill(JSON.stringify(definition, null, 4));
 }
 
 async function downloadJson<T>(page: Page, button: string, filename: string): Promise<T> {
+    if (button === "Download rules") {
+        await openModelSetup(page);
+    }
     const pendingDownload = page.waitForEvent("download");
     await page.getByRole("button", { name: button, exact: true }).click();
     const download = await pendingDownload;
@@ -181,6 +189,7 @@ test("normalizes only explicitly selected data and invalidates previews when inp
     ).toEqual(definition);
     await expect(page.locator(".match-group")).toHaveCount(1);
     await expect(page.locator(".match-member")).toHaveCount(2);
+    await openModelSetup(page);
     const secondRun = page.locator(".matching-run").filter({ hasText: "source-b-tool" });
     await secondRun.getByRole("checkbox").uncheck();
     await expect(page.locator(".match-group")).toHaveCount(0);
@@ -206,7 +215,7 @@ test("reports invalid matching rules while preserving the imported evidence", as
         capture: "same",
     });
     await expect(page.locator(".match-group")).toHaveCount(0);
-    await page.getByRole("button", { name: "Preview matches", exact: true }).click();
+    await page.getByRole("button", { name: "Build model", exact: true }).click();
     await expect(page.getByRole("alert")).toContainText(/version/iu);
     await expect(page.locator(".source")).toHaveCount(2);
     await page.getByRole("button", { name: "Trace inspection", exact: true }).click();
@@ -232,6 +241,7 @@ test("uses title-aware defaults and configurable session normalization without c
     await expect(preset.locator("option:checked")).toHaveText("Page address and title");
     await previewMatches(page);
     await expect(page.locator(".match-group")).toHaveCount(0);
+    await openModelSetup(page);
     await page.getByText("Edit matching rules (JSON)", { exact: true }).click();
     const editor = page.getByLabel("Matching definition", { exact: true });
     const definition = JSON.parse(await editor.inputValue()) as MatchingDefinition;
@@ -250,6 +260,7 @@ test("uses title-aware defaults and configurable session normalization without c
     await expect(page.locator(".match-member").filter({ hasText: "source-b-tool" })).toContainText(
         secondAddress,
     );
+    await openModelSetup(page);
     const exported = await downloadJson<MatchingDefinition>(
         page,
         "Download rules",

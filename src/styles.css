@@ -1313,3 +1313,133 @@ textarea:focus-visible {
         max-height: none;
     }
 }
+
+/* Keep the constructed model above setup and display details. */
+.matching-workspace {
+    padding: 16px 24px;
+}
+.matching-heading h1 {
+    font-size: 26px;
+    margin: 8px 0 12px;
+}
+.model-setup {
+    border: 1px solid #dce0d6;
+    border-radius: 6px;
+    background: #fcfbf7;
+    margin-bottom: 12px;
+}
+.model-setup > summary {
+    padding: 12px 16px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+}
+.model-setup > summary span {
+    margin-left: 16px;
+    font-size: 12px;
+    font-weight: 400;
+    color: #63716b;
+}
+.model-setup > p {
+    margin: 0;
+    padding: 0 16px 12px;
+    color: #63716b;
+    font-size: 13px;
+}
+.model-setup .matching-controls {
+    grid-template-columns: minmax(0, 1fr);
+    padding: 0 12px 12px;
+    gap: 12px;
+}
+.model-setup .matching-runs {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr));
+    gap: 0 24px;
+    max-height: 180px;
+}
+.model-setup .matching-panel {
+    padding: 14px;
+}
+.matching-workspace > .matching-actions {
+    margin: 8px 0;
+}
+.matching-workspace .result-views {
+    padding-bottom: 8px;
+}
+.derived-workspace > p:first-child {
+    margin-bottom: 8px;
+}
+.derived-summary {
+    margin: 8px 0 12px;
+}
+.model-tools {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+.model-tools .derived-controls {
+    flex: 1;
+    min-width: 0;
+    padding: 12px;
+    margin: 0;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) auto auto;
+    gap: 8px 16px;
+}
+.model-tools .derived-controls .compact-toggle {
+    grid-column: auto;
+    max-width: 180px;
+}
+.render-options {
+    position: relative;
+    flex-shrink: 0;
+}
+.render-options > summary {
+    padding: 12px 16px;
+    border: 1px solid #cbd5c6;
+    border-radius: 5px;
+    background: #edf0e9;
+    font-size: 13px;
+    cursor: pointer;
+}
+.render-options > .derived-render-controls {
+    position: absolute;
+    z-index: 5;
+    top: calc(100% + 8px);
+    right: 0;
+    width: min(360px, 90vw);
+    grid-template-columns: minmax(0, 1fr);
+    max-height: calc(100dvh - 280px);
+    overflow: auto;
+    box-shadow: 0 8px 24px #193b4026;
+}
+@media (max-width: 1050px) {
+    .model-tools {
+        flex-direction: column;
+    }
+    .model-tools .derived-controls {
+        width: 100%;
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    }
+    .render-options {
+        width: 100%;
+    }
+    .render-options > .derived-render-controls {
+        position: static;
+        width: 100%;
+        max-height: none;
+        margin-top: 8px;
+    }
+}
+@media (max-width: 650px) {
+    .matching-workspace {
+        padding: 16px;
+    }
+    .model-setup > summary span {
+        display: block;
+        margin: 8px 0 0;
+    }
+    .model-tools .derived-controls {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
