@@ -1,5 +1,5 @@
-import { runKey, type AbstractModel, type EvidenceReference } from "./analysis";
-import { edgeLabel } from "./analysis/abstractModelLabels";
+import { runKey, type AbstractModel, type EvidenceReference } from "testar-abstraction";
+import { edgeLabel } from "testar-abstraction";
 
 export interface AbstractModelScope {
     source: string;

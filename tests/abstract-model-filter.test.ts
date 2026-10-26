@@ -6,8 +6,8 @@ import {
     type AbstractModelNode,
     type EvidenceReference,
     type ExecutionReference,
-} from "../src/analysis";
-import { edgeLabel } from "../src/analysis/abstractModelLabels";
+} from "testar-abstraction";
+import { edgeLabel } from "testar-abstraction";
 import { filterAbstractModel } from "../src/abstract-model-filter";
 
 function observation(source: string, id: string, run = "run"): EvidenceReference {

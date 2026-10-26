@@ -12,7 +12,7 @@ import { Details } from "./Details";
 import { ExecutionDetails } from "./ExecutionDetails";
 import { ObservationOrderLinkDetails } from "./ObservationOrderLinkDetails";
 import { observationOrderLinks } from "./evidence/trace";
-import type { EvidenceReference, ExecutionReference } from "./analysis";
+import type { EvidenceReference, ExecutionReference } from "testar-abstraction";
 const AbstractionPreview = lazy(() =>
     import("./AbstractionPreview").then((module) => ({ default: module.AbstractionPreview })),
 );

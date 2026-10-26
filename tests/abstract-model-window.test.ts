@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { AbstractModelEdge, AbstractModelNode } from "../src/analysis";
+import type { AbstractModelEdge, AbstractModelNode } from "testar-abstraction";
 import { abstractModelWindow } from "../src/abstract-model-presentation";
 
 function nodes(count: number): AbstractModelNode[] {

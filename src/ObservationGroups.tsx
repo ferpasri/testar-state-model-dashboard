@@ -4,7 +4,7 @@ import type {
     ObservationGroup,
     AbstractionPreview,
     AnalysisSource,
-} from "./analysis";
+} from "testar-abstraction";
 import { displayValue, formatJson } from "./evidence/common";
 
 interface Props {

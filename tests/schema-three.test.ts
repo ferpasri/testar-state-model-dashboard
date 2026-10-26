@@ -7,7 +7,7 @@ import type { EvidenceEvent } from "../src/evidence/schema";
 import { EvidenceReconstructor } from "../src/evidence/reconstructed-evidence";
 import { parseJson } from "../src/evidence/common";
 import { oracleResultsForObservation } from "../src/Details";
-import { buildAbstractModel, previewAbstraction, runKey } from "../src/analysis";
+import { buildAbstractModel, previewAbstraction, runKey } from "testar-abstraction";
 import { fixtureFiles, sharedCases } from "./support";
 
 function directory(name: string): string {

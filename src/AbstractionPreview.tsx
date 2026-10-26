@@ -8,7 +8,7 @@ import {
     type AbstractModel,
     type AbstractionPreview as Preview,
     type AbstractionProgress,
-} from "./analysis";
+} from "testar-abstraction";
 import { abstractionInputs } from "./abstraction-input";
 import { ObservationGroups } from "./ObservationGroups";
 import { formatJson } from "./evidence/common";

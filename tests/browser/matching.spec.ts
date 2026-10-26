@@ -2,7 +2,7 @@ import { openModelSetup } from "./model-controls";
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import type { AbstractionRules, AbstractionPreview } from "../../src/analysis";
+import type { AbstractionRules, AbstractionPreview } from "testar-abstraction";
 import type { EvidenceEvent } from "../../src/evidence/schema";
 import { sharedCases } from "../support";
 

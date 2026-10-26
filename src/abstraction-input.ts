@@ -1,5 +1,5 @@
 import { testRunForSequence } from "./evidence/reconstructed-evidence";
-import { ABSTRACTION_LIMITS, runKey, type AnalysisSource } from "./analysis";
+import { ABSTRACTION_LIMITS, runKey, type AnalysisSource } from "testar-abstraction";
 import type { ImportedSource } from "./evidence/import";
 
 export function abstractionInputs(
@@ -55,15 +55,17 @@ export function abstractionInputs(
             label: source.label,
             fingerprint: source.fingerprint,
             evidence: {
-                ...source.evidence,
                 runs,
+                sequences: new Map(
+                    Array.from(source.evidence.sequences).filter(([, sequence]) =>
+                        runs.has(sequence.test_run),
+                    ),
+                ),
                 observations,
                 executions,
                 actions: new Map(
                     Array.from(source.evidence.actions).filter(([id]) => actionIds.has(id)),
                 ),
-                oracleResults: [],
-                recordedStates: new Map(),
             },
         });
     }

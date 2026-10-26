@@ -136,3 +136,7 @@ Unit tests cover accepted/rejected cases, accepted prefixes, evidence reconstruc
 The top bar switches between **Trace inspection** and **Construct model**. Switching keeps the selected observation, inspector tab, abstraction rules, and constructed model in memory. A model calculation continues while the trace view is visible. Reloading the page clears the workspace.
 
 In **Construct model**, **Model setup** contains the selected runs, preset, and JSON rules. **Build model** displays the graph automatically and collapses setup. **Observation groups** shows the comparison details. Source/run highlighting stays beside the graph; **Rendering options** opens layout and label controls without reserving an empty section above the model.
+
+## Shared abstraction implementation
+
+Rules, presets, grouping, and abstract-model construction come from the independent `testar-abstraction` package. Its repository owns the language documentation, core tests, and abstraction conformance cases. This dashboard supplies validated reconstructed evidence and retains worker cancellation, rendering, highlighting, and inspection.

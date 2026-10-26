@@ -8,7 +8,7 @@ Evidence is validated and processed in a browser worker. The server delivers the
 
 ## Run locally
 
-Use Node.js 24 or newer. Run these commands in this repository:
+Use Node.js 24 or newer and Git. Run these commands in this repository; npm downloads the tagged abstraction dependency and builds it automatically:
 
 ```sh
 npm ci
@@ -71,3 +71,9 @@ See [implemented behavior and limits](docs/SPEC.md), [the architecture](docs/arc
 The top bar switches between **Trace inspection** and **Construct model**. Switching keeps the selected observation, inspector tab, abstraction rules, and constructed model in memory. A model calculation continues while the trace view is visible. Reloading the page clears the workspace.
 
 In **Construct model**, **Model setup** contains the selected runs, preset, and JSON rules. **Build model** displays the graph automatically and collapses setup. **Observation groups** shows the comparison details. Source/run highlighting stays beside the graph; **Rendering options** opens layout and label controls without reserving an empty section above the model.
+
+## Shared abstraction package
+
+Model construction imports `testar-abstraction` from `github:ferpasri/testar-abstraction#v0.3.0`. The lockfile pins the resolved Git commit. npm runs the dependency's `prepare` script to build its JavaScript and TypeScript declarations; keep installation scripts enabled.
+
+The package owns abstraction rules, presets, evidence indexing, abstract-model construction, and abstraction conformance cases. The dashboard owns file import, workers, graphs, layouts, highlighting, and inspectors. Other browser or Node.js consumers can use the same package.

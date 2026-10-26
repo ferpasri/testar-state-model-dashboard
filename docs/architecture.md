@@ -71,3 +71,7 @@ The initial workspace lives in browser memory. Persistent browser storage can be
 Use shared specs conformance cases for generic input behavior. Add focused dashboard tests for multi-source identities, grouping membership, trace selection, validation messages, unsafe content, resource limits, and artifact handling.
 
 Browser tests exercise local file import, graph/detail navigation, screenshots, oracle-result targets, and the privacy boundary. Representative larger traces measure import time, memory use, responsiveness, and graph behavior before selecting practical support limits.
+
+## Shared abstraction dependency
+
+`testar-abstraction` defines its own structural evidence input contract and has no dependency on this dashboard. The dashboard passes validated reconstructed records to its worker, which calls the shared rule interpreter and model builder. The abstraction language and conformance cases live in the package repository. Rendering options and source/run highlighting remain dashboard responsibilities.

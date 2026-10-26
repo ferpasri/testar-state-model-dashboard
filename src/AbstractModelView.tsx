@@ -4,8 +4,8 @@ import type {
     EvidenceReference,
     ExecutionReference,
     AbstractionPreview,
-} from "./analysis";
-import { runKey } from "./analysis";
+} from "testar-abstraction";
+import { runKey } from "testar-abstraction";
 import { abstractModelWindow, evidenceLabel } from "./abstract-model-presentation";
 import { AbstractModelInspector } from "./AbstractModelInspector";
 import { filterAbstractModel } from "./abstract-model-filter";

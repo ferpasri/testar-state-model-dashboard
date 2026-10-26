@@ -38,8 +38,8 @@
 - [x] Offer layout, label, count, and dimming controls while preserving positions during highlighting and filtering.
 - [x] Filter an abstract-model view and its inspector to a source/run contribution while retaining the full model.
 - [x] Export the abstract model with its abstraction rules, input fingerprints, and original references.
-- [ ] Configure action grouping separately and derive transitions from recorded executions.
-- [ ] Add further normalization operations and similarity algorithms as evidence needs become clear.
+- [ ] Integrate separately configurable action grouping when available in `testar-abstraction`.
+- [ ] Expose additional normalization and similarity options as the shared abstraction package adds them.
 - [ ] Provide a visual rule editor and richer explanations of individual normalization steps.
 - [ ] Broaden matching examples and performance measurements using recordings from different producers.
 - [ ] Add search across runs and highlight complete original execution paths.
@@ -63,3 +63,9 @@
 - [ ] Provide static hosting and self-hosting instructions with appropriate security headers.
 - [ ] Broaden browser coverage and benchmark larger evidence sets before increasing import limits.
 - [ ] Add bounded archive import when packaging requirements are agreed.
+
+## Shared abstraction package
+
+- [x] Extract algorithms, presets, language documentation, and core tests to `testar-abstraction`.
+- [x] Import the shared package while retaining dashboard workers and rendering.
+- [x] Import `testar-abstraction` from `github:ferpasri/testar-abstraction#v0.3.0` with the resolved commit recorded in the lockfile.

@@ -3,7 +3,7 @@ import type {
     AbstractModelEdge,
     AbstractModelNode,
     EvidenceReference,
-} from "./analysis";
+} from "testar-abstraction";
 
 export function evidenceLabel(
     sources: AnalysisSource[],

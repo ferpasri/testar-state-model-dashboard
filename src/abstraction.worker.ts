@@ -3,7 +3,7 @@ import {
     parseAbstractionRules,
     previewAbstraction,
     type AnalysisSource,
-} from "./analysis";
+} from "testar-abstraction";
 
 interface AbstractionRequest {
     sources: AnalysisSource[];

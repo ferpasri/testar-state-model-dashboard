@@ -6,7 +6,7 @@ import type {
     EvidenceReference,
     ExecutionReference,
     AbstractionPreview,
-} from "./analysis";
+} from "testar-abstraction";
 import type { ImportedSource } from "./evidence/import";
 import { displayValue } from "./evidence/common";
 import { evidenceLabel } from "./abstract-model-presentation";

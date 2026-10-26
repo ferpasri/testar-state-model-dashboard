@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import cytoscape from "cytoscape";
-import type { AbstractModelEdge, AbstractModel, AbstractModelNode } from "./analysis";
+import type { AbstractModelEdge, AbstractModel, AbstractModelNode } from "testar-abstraction";
 import type { ModelLayout, RenderingOptions } from "./AbstractModelRenderControls";
 
 interface Props {

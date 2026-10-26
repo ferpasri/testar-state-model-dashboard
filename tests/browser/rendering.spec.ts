@@ -3,7 +3,7 @@ import { expect, test, type Page, type TestInfo } from "@playwright/test";
 import type { Core } from "cytoscape";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import type { AbstractModel } from "../../src/analysis";
+import type { AbstractModel } from "testar-abstraction";
 import type { EvidenceEvent } from "../../src/evidence/schema";
 import { sharedCases } from "../support";
 
