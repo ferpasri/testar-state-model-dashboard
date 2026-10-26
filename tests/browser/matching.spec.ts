@@ -1,14 +1,8 @@
 import { openModelSetup } from "./model-controls";
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import path from "node:path";
+import { readFileSync } from "node:fs";
 import type { AbstractionRules, AbstractionPreview } from "testar-abstraction";
-import type { EvidenceEvent } from "../../src/evidence/schema";
-import { sharedCases } from "../support";
-
-const initial = sharedCases().find(
-    (directory) => path.basename(directory) === "initial-observation",
-)!;
+import { readEvidenceCase, writeEvidenceCase } from "./evidence-fixtures";
 
 function sourceVariant(
     info: TestInfo,
@@ -17,15 +11,7 @@ function sourceVariant(
     title = "Original " + name,
 ): string {
     const directory = info.outputPath(name);
-    mkdirSync(directory, { recursive: true });
-    writeFileSync(
-        path.join(directory, "manifest.json"),
-        readFileSync(path.join(initial, "manifest.json")),
-    );
-    const entries: EvidenceEvent[] = readFileSync(path.join(initial, "evidence.jsonl"), "utf8")
-        .trimEnd()
-        .split("\n")
-        .map((line) => JSON.parse(line));
+    const { manifest, events: entries } = readEvidenceCase("initial-observation");
     for (const { event } of entries) {
         if (event.event_type === "test_run_started") {
             event.data.producer = name;
@@ -37,10 +23,7 @@ function sourceVariant(
         }
     }
     // Keep record identities equal so the comparison must retain their source scope.
-    writeFileSync(
-        path.join(directory, "evidence.jsonl"),
-        entries.map((entry) => JSON.stringify(entry)).join("\n") + "\n",
-    );
+    writeEvidenceCase(directory, manifest, entries);
     return directory;
 }
 

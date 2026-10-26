@@ -2,7 +2,7 @@
 
 ## Evidence format alignment
 
-- [x] Read schema-3 traces and pass the v0.3.0 shared conformance cases.
+- [x] Read the supported evidence schema and verify the shared conformance cases.
 - [x] Inspect test runs and test sequences without connecting separate sequence histories.
 - [x] Preserve oracle severity, observed values, and detailed oracle targets.
 
@@ -38,16 +38,16 @@
 - [x] Offer layout, label, count, and dimming controls while preserving positions during highlighting and filtering.
 - [x] Filter an abstract-model view and its inspector to a source/run contribution while retaining the full model.
 - [x] Export the abstract model with its abstraction rules, input fingerprints, and original references.
-- [x] Integrate configurable action grouping from `testar-abstraction` tag `v0.3.1-pre`.
+- [x] Integrate configurable action grouping from the shared abstraction package.
 - [x] Inspect abstract-action availability, execution support, original records, and unmatched diagnostics.
 - [x] Render one shared unobserved-outcome marker with thin action links, separately from abstract states and transitions, retaining source/run support.
-- [ ] Switch the dependency to the final abstraction tag after the pre-release integration has been reviewed.
+- [x] Switch the dependency from the reviewed pre-release to the final abstraction tag.
 - [ ] Expose additional normalization and similarity options as the shared abstraction package adds them.
 - [ ] Provide a visual rule editor and richer explanations of individual normalization steps.
 - [ ] Broaden matching examples and performance measurements using recordings from different producers.
 - [ ] Add search across runs and highlight complete original execution paths.
 - [ ] Add user annotations and explainable relationships between sources.
-- [ ] Define document and section associations with the specs project.
+- [ ] Define document identities, provenance, section references, and associations with evidence records through the specs project.
 - [ ] Introduce safe previews for selected documentation and BDD formats.
 - [ ] Define workspace export/import and user-controlled browser persistence.
 
@@ -71,4 +71,4 @@
 
 - [x] Extract algorithms, presets, language documentation, and core tests to `testar-abstraction`.
 - [x] Import the shared package while retaining dashboard workers and rendering.
-- [x] Import `testar-abstraction` from `github:ferpasri/testar-abstraction#v0.3.0` with the resolved commit recorded in the lockfile.
+- [x] Pin the selected abstraction release and resolved commit in the dependency manifest and lockfile.

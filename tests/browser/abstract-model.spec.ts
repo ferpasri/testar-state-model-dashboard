@@ -1,14 +1,10 @@
-import { openModelSetup, openRenderingOptions } from "./model-controls";
+import { openModelSetup, openRenderingOptions, openConstructedModel } from "./model-controls";
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import type { AbstractModel, AbstractionPreview } from "testar-abstraction";
 import type { EvidenceEvent } from "../../src/evidence/schema";
-import { sharedCases } from "../support";
-
-const broader = sharedCases().find(
-    (directory) => path.basename(directory) === "broader-oracle-targets",
-)!;
+import { readEvidenceCase, writeEvidenceCase } from "./evidence-fixtures";
 
 function sourceVariant(
     info: TestInfo,
@@ -16,15 +12,7 @@ function sourceVariant(
     options: { orderLink?: boolean; selfLoop?: boolean } = {},
 ): string {
     const directory = info.outputPath(name);
-    mkdirSync(directory, { recursive: true });
-    writeFileSync(
-        path.join(directory, "manifest.json"),
-        readFileSync(path.join(broader, "manifest.json")),
-    );
-    const entries: EvidenceEvent[] = readFileSync(path.join(broader, "evidence.jsonl"), "utf8")
-        .trimEnd()
-        .split("\n")
-        .map((line) => JSON.parse(line));
+    const { manifest, events: entries } = readEvidenceCase("broader-oracle-targets");
     for (const { event } of entries) {
         if (event.event_type === "test_run_started") {
             event.data.producer = name;
@@ -57,35 +45,8 @@ function sourceVariant(
         // This observation has no recorded execution connecting it to the previous observation.
         entries.splice(finished, 0, entry);
     }
-    writeFileSync(
-        path.join(directory, "evidence.jsonl"),
-        entries.map((entry) => JSON.stringify(entry)).join("\n") + "\n",
-    );
+    writeEvidenceCase(directory, manifest, entries);
     return directory;
-}
-
-async function openDerivedModel(page: Page, directories: string[]): Promise<void> {
-    await page.goto("/");
-    for (const [index, directory] of directories.entries()) {
-        await page.getByLabel("Evidence directory").setInputFiles(directory);
-        await expect(page.locator(".source")).toHaveCount(index + 1);
-    }
-    await page.getByRole("button", { name: "Construct model", exact: true }).click();
-    await page
-        .getByLabel("Abstraction preset", { exact: true })
-        .selectOption({ label: "Page address" });
-    await page.getByRole("button", { name: "Build model", exact: true }).click();
-    await expect(page.getByRole("heading", { name: "Abstract model", exact: true })).toBeVisible();
-    await expect(page.getByRole("heading", { name: "Abstract model", exact: true })).toBeVisible();
-    await expect(
-        page
-            .getByRole("region", { name: "Abstract model graph", exact: true })
-            .locator("canvas")
-            .first(),
-    ).toBeVisible();
-    await page
-        .getByRole("checkbox", { name: "Show observation-order links", exact: true })
-        .uncheck();
 }
 
 test("combines recorded transitions while preserving source-scoped execution and observation navigation", async ({
@@ -93,7 +54,7 @@ test("combines recorded transitions while preserving source-scoped execution and
 }, info) => {
     const errors: string[] = [];
     page.on("pageerror", (error) => errors.push(error.message));
-    await openDerivedModel(page, [
+    await openConstructedModel(page, [
         sourceVariant(info, "source-a-tool", { orderLink: true }),
         sourceVariant(info, "source-b-tool", { orderLink: true }),
     ]);
@@ -175,7 +136,7 @@ test("combines recorded transitions while preserving source-scoped execution and
 test("keeps observation-order links separate and highlights a run without removing evidence data", async ({
     page,
 }, info) => {
-    await openDerivedModel(page, [
+    await openConstructedModel(page, [
         sourceVariant(info, "source-a-tool", { orderLink: true }),
         sourceVariant(info, "source-b-tool", { orderLink: true }),
     ]);
@@ -222,7 +183,7 @@ test("keeps observation-order links separate and highlights a run without removi
 test("retains a recorded execution when its observations form one abstract state", async ({
     page,
 }, info) => {
-    await openDerivedModel(page, [sourceVariant(info, "source-a-tool", { selfLoop: true })]);
+    await openConstructedModel(page, [sourceVariant(info, "source-a-tool", { selfLoop: true })]);
     await expect(page.locator(".abstract-model-node")).toHaveCount(1);
     await expect(page.locator('.abstract-model-edge[data-kind="execution"]')).toHaveCount(1);
     await page.locator('.abstract-model-edge[data-kind="execution"]').click();
@@ -234,7 +195,7 @@ test("retains a recorded execution when its observations form one abstract state
 test("selects a recorded transition directly on the abstract-model canvas", async ({
     page,
 }, info) => {
-    await openDerivedModel(page, [sourceVariant(info, "source-a-tool")]);
+    await openConstructedModel(page, [sourceVariant(info, "source-a-tool")]);
     await expect(page.locator(".abstract-model-node")).toHaveCount(2);
     const transition = page.locator('.abstract-model-edge[data-kind="execution"]');
     await expect(transition).toHaveCount(1);
@@ -257,7 +218,7 @@ test("selects a recorded transition directly on the abstract-model canvas", asyn
 test("switches views in the top bar while retaining trace inspection and the constructed model", async ({
     page,
 }, info) => {
-    await openDerivedModel(page, [sourceVariant(info, "retained-trace")]);
+    await openConstructedModel(page, [sourceVariant(info, "retained-trace")]);
     const navigation = page.getByRole("banner").getByRole("navigation", { name: "Workspace view" });
     await openRenderingOptions(page);
     await page.getByLabel("Model layout", { exact: true }).selectOption("circular");
@@ -359,7 +320,7 @@ test("inspects available actions and unobserved outcomes without exporting inven
         });
     }
     writeFileSync(filename, events.map((event) => JSON.stringify(event)).join("\n") + "\n");
-    await openDerivedModel(page, [directory]);
+    await openConstructedModel(page, [directory]);
     await openModelSetup(page);
     await page
         .getByLabel("Abstraction preset", { exact: true })

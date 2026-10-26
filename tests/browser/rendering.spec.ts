@@ -1,15 +1,10 @@
-import { openRenderingOptions } from "./model-controls";
+import { openRenderingOptions, openConstructedModel } from "./model-controls";
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
 import type { Core } from "cytoscape";
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import path from "node:path";
+import { readFileSync } from "node:fs";
 import type { AbstractModel } from "testar-abstraction";
 import type { EvidenceEvent } from "../../src/evidence/schema";
-import { sharedCases } from "../support";
-
-const broader = sharedCases().find(
-    (directory) => path.basename(directory) === "broader-oracle-targets",
-)!;
+import { readEvidenceCase, writeEvidenceCase } from "./evidence-fixtures";
 
 type GraphContainer = HTMLElement & { _cyreg: { cy: Core } };
 
@@ -21,15 +16,7 @@ function sourceVariant(
     pagesOverride?: Array<string | null>,
 ): string {
     const directory = info.outputPath(name);
-    mkdirSync(directory, { recursive: true });
-    writeFileSync(
-        path.join(directory, "manifest.json"),
-        readFileSync(path.join(broader, "manifest.json")),
-    );
-    const original: EvidenceEvent[] = readFileSync(path.join(broader, "evidence.jsonl"), "utf8")
-        .trimEnd()
-        .split("\n")
-        .map((line) => JSON.parse(line));
+    const { manifest, events: original } = readEvidenceCase("broader-oracle-targets");
     const run = structuredClone(
         original.flatMap(({ event }) =>
             event.event_type === "test_run_started" ? [event.data] : [],
@@ -110,33 +97,12 @@ function sourceVariant(
         event_type: "test_run_finished",
         data: { test_run: run.id, reason: "sequence complete" },
     });
-    writeFileSync(
-        path.join(directory, "evidence.jsonl"),
-        entries.map((entry) => JSON.stringify(entry)).join("\n") + "\n",
-    );
+    writeEvidenceCase(directory, manifest, entries);
     return directory;
 }
 
-async function openModelDirectories(page: Page, directories: string[]): Promise<void> {
-    await page.goto("/");
-    for (const [index, directory] of directories.entries()) {
-        await page.getByLabel("Evidence directory").setInputFiles(directory);
-        await expect(page.locator(".source")).toHaveCount(index + 1);
-    }
-    await page.getByRole("button", { name: "Construct model", exact: true }).click();
-    await page
-        .getByLabel("Abstraction preset", { exact: true })
-        .selectOption({ label: "Page address" });
-    await page.getByRole("button", { name: "Build model", exact: true }).click();
-    await expect(page.getByRole("heading", { name: "Abstract model", exact: true })).toBeVisible();
-    await expect(page.locator(".abstract-model-graph canvas").first()).toBeVisible();
-    await page
-        .getByRole("checkbox", { name: "Show observation-order links", exact: true })
-        .uncheck();
-}
-
 async function openModel(page: Page, info: TestInfo): Promise<void> {
-    await openModelDirectories(page, [
+    await openConstructedModel(page, [
         sourceVariant(info, "render-source-a", "b", false),
         sourceVariant(info, "render-source-b", "c", true),
     ]);
@@ -336,7 +302,7 @@ test("keeps a large graph window stable when selecting visible evidence and load
 }, info) => {
     test.setTimeout(90_000);
     const pages = Array.from({ length: 505 }, (_, index) => "large-" + (index + 1));
-    await openModelDirectories(page, [
+    await openConstructedModel(page, [
         sourceVariant(info, "render-large-source", "unused", false, pages),
     ]);
     const original = await snapshot(page);

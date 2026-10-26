@@ -28,6 +28,12 @@ EvidenceReconstructor validates test runs and their test sequences, increasing s
 
 Properties, supplied null values, and omitted optional values retain their meanings. Unsigned 64-bit indexes and timestamps, and large integer properties, are preserved exactly. The inspector displays the original numeric value.
 
+## Workspace navigation
+
+The top bar switches between **Trace inspection** and **Construct model**. Switching keeps the selected observation, inspector tab, abstraction rules, and constructed model in memory. A model calculation continues while the trace view is visible. Reloading the page clears the workspace.
+
+In **Construct model**, **Model setup** contains the selected runs, preset, and JSON rules. **Build model** displays the graph automatically and collapses setup. **Observation groups** shows the comparison details. Source/run highlighting stays beside the graph; **Rendering options** opens layout and label controls without reserving an empty section above the model.
+
 ## Inspection
 
 The timeline orders observations by test sequence and then observation index within the selected test run. The test-sequence selector shows all sequences or one sequence. Selecting an observation updates the graph and inspector. Clicking an execution link opens its own inspector with the action, parameters, status, target widget, and source/result navigation. Selecting an observation returns to its observation inspector. Solid graph edges come from completed executions. Optional dashed links connect adjacent observations in the same test sequence when no completed execution connects that pair. They show observation order only; they do not establish that an action happened. Clicking a dashed link opens an explanation and navigation to its endpoints. These links are derived for display and leave imported observations, executions, and source fingerprints intact. Graph windows do not create links across omitted observations. A run with repeated or visually identical observations retains each observation.
@@ -52,15 +58,9 @@ OracleResultView lists also filter reports by supplied assessment phase: during 
 
 The **Construct model** view compares selected runs from the imported sources. Its shared evidence index scopes identities by source and by the record's run or observation where applicable. Reused IDs in independent sources remain separate. The index counts selected observations, widgets, referenced action descriptions, and executions.
 
-Users choose a built-in preset or edit a JSON definition. Both paths use the same versioned interpreter. The definition selects state properties and optional widget properties, with ordered alternative names for each field. Comparison preserves exact JSON values, including large integers and explicit nulls. A missing optional property has its own representation. Missing required fields, unsuitable transform values, and observations without selected captured values produce unmatched explanations.
+The worker passes selected reconstructed evidence and the chosen preset or JSON definition to `testar-abstraction`. The package owns property selection, normalization, widget and action comparisons, unmatched diagnostics, and processing bounds. See its [language reference](https://github.com/ferpasri/testar-abstraction/blob/main/docs/language.md) and [processing specification](https://github.com/ferpasri/testar-abstraction/blob/main/docs/SPEC.md#processing).
 
-Supported string transforms trim, collapse whitespace, lowercase, replace literal text, map chosen strings, and remove explicitly named semicolon path parameters, query parameters, or fragments from absolute URLs. Widget exclusions inspect original values using presence, equality, or text containment. Rules define whether excluded descendants remain, whether hierarchy participates, and whether captured order matters. Sorted collections preserve duplicate widget descriptions.
-
-Grouping uses exact equality of the resulting comparison representation. The default **Page address and title** preset requires `ui.url` and a string `ui.title`. It removes the address fragment and trims and collapses title whitespace while preserving case. Empty titles remain captured strings; missing or non-string titles produce unmatched explanations. Different normalized titles keep observations separate at the same address. **Page address** requires only the address. **Page and widget structure** compares address and title plus optional role, name/title, and tag descriptions as a sorted flat collection.
-
-Session parameters remain unless a rule explicitly removes them. The URL transform's `remove_path_parameters` lists exact, case-sensitive names and removes all matching semicolon parameters in every path segment. Names are percent-decoded once after splitting literal semicolons; malformed encodings remain unchanged. Values and unrelated parameters keep their encoding and order. Query parameters and fragments use their separate options. The full captured `ui.url` and `ui.title` remain unchanged in the source evidence.
-
-The `capture: "same"` setting compares recorded capture statuses; equivalent statuses do not establish equivalent producer capture scopes. A policy that compares widgets leaves observations with unavailable widget captures unmatched.
+The dashboard's built-in presets and editing workflow are described in the [model-construction guide](abstraction.md). Original values remain available in source inspection.
 
 Observation groups retain original source, run, observation, and widget references. Widget correspondences describe equal projected descriptions with captured selected values, including ambiguity when several widgets in one observation share a description. They do not establish persistent widget identity. Users can filter groups to different runs, repeated observations, or all groups, and open any original observation in the trace inspector.
 
@@ -68,28 +68,13 @@ The preview records its full definition, SHA-256 policy fingerprint, interpreter
 
 Matching runs in a separate browser worker with progress and cancellation. Editing the definition or run selection invalidates the previous preview. Changing imported sources also invalidates its input scope. Errors preserve the imported evidence.
 
-| Matching limit                         | Value   |
-| -------------------------------------- | ------- |
-| JSON definition                        | 64 KiB  |
-| Selected observations                  | 10,000  |
-| Widgets in selected observations       | 100,000 |
-| Widget hierarchy depth                 | 128     |
-| Individual normalized comparison value | 1 MiB   |
-| Total comparison representations       | 32 MiB  |
-| Fields per state/widget section        | 32      |
-| Alternative property names per field   | 8       |
-| Transforms per field                   | 12      |
-| Widget exclusion rules                 | 32      |
-
-Matching changes the analysis view. It preserves recorded executions, observation-order links, original evaluation targets, and observation-specific coverage. See [abstraction rules and examples](abstraction.md).
-
 ## Abstract model
 
 After previewing matches, users can switch between **Observation groups** and **Abstract model**. Model construction runs in the abstraction worker and uses the same selected evidence and policy. Source fingerprints and run references are checked before building the model.
 
 Each observation group becomes a node, including groups with one observation. Each unmatched observation receives its own node and explanation. Every selected observation remains represented.
 
-Completed executions produce directed edges. With action rules, executions share an edge when their ordered endpoint nodes and abstract action agree. Without action rules, the exact original action type determines grouping. Reverse directions remain separate; executions within one node become self-loops. Each edge retains source/run/execution references, with original action IDs, widget targets, and parameters available through those references. This summarizes action types while preserving the individual executions.
+Completed executions produce directed edges. With action rules, executions share an edge when their ordered endpoint nodes and abstract action agree. Without action rules, the exact original action type determines grouping. Reverse directions remain separate; executions within one node become self-loops. Each edge retains source/run/execution references, with original action IDs, widget targets, and parameters available through those references. Individual supporting executions remain available for inspection.
 
 Observation-order links remain a separate dashed edge type and retain their original endpoint pairs within each run. They do not establish completed executions. Selected, submitted, rejected, incomplete, and unusable result executions remain in a separate list with their recorded status and an explanation.
 
@@ -103,7 +88,7 @@ Clicking a node or edge selects its inspector; keyboard-accessible state and lin
 
 Layout, label, dimming, and filtering settings live in memory for the current abstract-model view. They change presentation while the abstraction rules (JSON), original records, and downloaded model retain their full scope.
 
-The graph displays a window of up to 500 states and 2,000 links. Highlighting and filtering retain that window, even when selected evidence lies outside it. Selecting an outside state or link from the lists loads a new window containing it or its endpoints and applies the chosen layout. Lists expand in bounded batches; the complete abstract model remains available in memory and in downloads.
+The graph displays a window of up to 500 graph nodes and 2,000 links. Highlighting and filtering retain that window, even when selected evidence lies outside it. Selecting an outside state or link from the lists loads a new window containing it or its endpoints and applies the chosen layout. Lists expand in bounded batches; the complete abstract model remains available in memory and in downloads.
 
 **Download model** exports the definition, policy fingerprint, interpreter version, input scope, and abstract model with its original-record references. Original screenshots and full records remain in the imported source folders. The graph preserves observation-specific evaluation targets and coverage.
 
@@ -131,11 +116,7 @@ These file-size limits bound input, rather than promising the same amount of bro
 
 Development tooling downloads the newest published specs release, including prereleases, and records its selection and file hashes under ignored `.cache/specs/`. Tests validate that cache and discover all released conformance cases. Preparation checks the network; subsequent tests use the selected data offline.
 
-Unit tests cover accepted/rejected cases, accepted prefixes, evidence reconstruction, identities, integrity, exact numbers, unsafe input, and abstraction rules. Matching checks include scoped identities, normalization, widget filtering, hierarchy, missing values, membership, provenance, and processing limits. Browser tests exercise the production build, including directory selection, screenshots, malformed labels, independent sources, mobile layout, cancellation, abstraction and abstract-model navigation, and the runtime network boundary.
-
-The top bar switches between **Trace inspection** and **Construct model**. Switching keeps the selected observation, inspector tab, abstraction rules, and constructed model in memory. A model calculation continues while the trace view is visible. Reloading the page clears the workspace.
-
-In **Construct model**, **Model setup** contains the selected runs, preset, and JSON rules. **Build model** displays the graph automatically and collapses setup. **Observation groups** shows the comparison details. Source/run highlighting stays beside the graph; **Rendering options** opens layout and label controls without reserving an empty section above the model.
+Unit tests cover accepted and rejected traces, reconstruction, integrity, exact numbers, unsafe inputs, source filtering, bounded graph windows, and action presentation. The shared package tests rule interpretation and abstraction conformance. Browser tests exercise the production build, including directory selection, screenshots, malformed labels, independent sources, mobile layout, cancellation, abstraction and abstract-model navigation, and the runtime network boundary.
 
 ## Shared abstraction implementation
 
@@ -143,7 +124,7 @@ Rules, presets, grouping, and abstract-model construction come from the independ
 
 ## Available actions in the constructed model
 
-The dashboard uses `testar-abstraction` tag `v0.3.1-pre` for optional action matching. A separate preset selects captured target role and name; custom rules can also select action-description properties and input values. The worker returns abstract actions with availability records, recorded and inferred execution relationships, ambiguity, and unmatched-action diagnostics. Downloads retain this data and the rules that produced it.
+The abstraction dependency selected in [package.json](../package.json) supplies optional action matching. A separate preset selects captured target role and name; custom rules can also select action-description properties and input values. The worker returns abstract actions with availability records, recorded and inferred execution relationships, ambiguity, and unmatched-action diagnostics. Downloads retain this data and the rules that produced it.
 
 The action list and inspector open original availability observations and action executions. Scope filtering uses their original source/run references and preserves ambiguity reported by the full model. It does not infer that every tool discovered an action or checked its properties.
 

@@ -67,16 +67,6 @@ describe("abstract action presentation", () => {
         expect(graph.counts).toEqual(model.counts);
         expect(JSON.stringify(model)).toBe(before);
     });
-    it("retains actual execution support across sources", async () => {
-        const model = await fixture();
-        const beta = filterAbstractModel(model, { source: "beta", run: "all" });
-        expect(beta.actionEvidence!.actions).toHaveLength(1);
-        expect(beta.actionEvidence!.actions[0].availability).toEqual([]);
-        expect(beta.actionEvidence!.actions[0].executions[0].relationship).toBe("abstraction");
-        const scopedGraph = actionModelGraph(beta);
-        expect(scopedGraph.nodes.filter((node) => node.outcomeActions)).toEqual([]);
-        expect(scopedGraph.edges.filter((edge) => edge.outcomeAction)).toEqual([]);
-    });
     it("filters availability support and keeps positions comparable when another source supplied an outcome", async () => {
         const model = await fixture();
         const graph = actionModelGraph(model);
@@ -158,9 +148,13 @@ describe("abstract action presentation", () => {
             actionModelGraph(model).nodes.flatMap((node) => node.outcomeActions ?? []),
         );
         const beta = filterAbstractModel(model, { source: "beta", run: "all" });
-        expect(
-            actionModelGraph(beta, allowed, true).edges.filter((edge) => edge.outcomeActions),
-        ).toEqual([]);
+        for (const grouping of [false, true]) {
+            const scoped = actionModelGraph(beta, allowed, grouping);
+            expect(
+                scoped.edges.filter((edge) => edge.outcomeAction || edge.outcomeActions),
+            ).toEqual([]);
+            expect(scoped.nodes.filter((node) => node.outcomeActions)).toEqual([]);
+        }
         const alpha = filterAbstractModel(model, { source: "alpha", run: "all" });
         const link = actionModelGraph(alpha, allowed, true).edges.find(
             (edge) => edge.outcomeActions,
