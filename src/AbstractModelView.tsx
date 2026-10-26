@@ -7,6 +7,8 @@ import type {
 } from "testar-abstraction";
 import { runKey } from "testar-abstraction";
 import { abstractModelWindow, evidenceLabel } from "./abstract-model-presentation";
+import { actionModelGraph } from "./abstract-action-presentation";
+import { AbstractActionsPanel } from "./AbstractActionsPanel";
 import { AbstractModelInspector } from "./AbstractModelInspector";
 import { filterAbstractModel } from "./abstract-model-filter";
 import { DEFAULT_RENDERING, AbstractModelRenderControls } from "./AbstractModelRenderControls";
@@ -37,6 +39,9 @@ export function AbstractModelView({
 }: Props) {
     const [selectedNode, setSelectedNode] = useState(model.nodes[0]?.id ?? "");
     const [selectedEdge, setSelectedEdge] = useState("");
+    const [selectedAction, setSelectedAction] = useState("");
+    const [showAvailableActions, setShowAvailableActions] = useState(true);
+    const [groupUnknownOutcomes, setGroupUnknownOutcomes] = useState(false);
     const [focus, setFocus] = useState({ node: model.nodes[0]?.id ?? "", edge: "" });
     const [options, setOptions] = useState(DEFAULT_RENDERING);
     const [showOnlySelected, setShowOnlySelected] = useState(false);
@@ -50,16 +55,29 @@ export function AbstractModelView({
         () => filterAbstractModel(model, { source: sourceFilter, run: runFilter }),
         [model, sourceFilter, runFilter],
     );
+    const graphModel = useMemo(
+        () => actionModelGraph(model, undefined, groupUnknownOutcomes),
+        [model, groupUnknownOutcomes],
+    );
+    const unknownActions = useMemo(
+        () => new Set(graphModel.nodes.flatMap((node) => node.outcomeActions ?? [])),
+        [graphModel],
+    );
+    const scopedGraph = useMemo(
+        () => actionModelGraph(scopedModel, unknownActions, groupUnknownOutcomes),
+        [scopedModel, unknownActions, groupUnknownOutcomes],
+    );
     const highlighting = sourceFilter !== "all" || runFilter !== "all";
     const displayModel = showOnlySelected && highlighting ? scopedModel : model;
+    const displayGraph = showOnlySelected && highlighting ? scopedGraph : graphModel;
     const edges = useMemo(
         () => displayModel.edges.filter((edge) => showOrderLinks || edge.kind === "execution"),
         [displayModel, showOrderLinks],
     );
     // Keep the graph window independent of rendering filters so positions remain comparable.
     const window = useMemo(
-        () => abstractModelWindow(model.nodes, model.edges, focus.node, focus.edge),
-        [model, focus],
+        () => abstractModelWindow(graphModel.nodes, graphModel.edges, focus.node, focus.edge),
+        [graphModel, focus],
     );
     const windowNodeIds = useMemo(
         () => new Set(window.nodes.map((item) => item.id)),
@@ -71,6 +89,7 @@ export function AbstractModelView({
     );
     const selectNode = useCallback(
         (id: string) => {
+            setSelectedAction("");
             setSelectedNode(id);
             setSelectedEdge("");
             if (!windowNodeIds.has(id)) {
@@ -81,6 +100,7 @@ export function AbstractModelView({
     );
     const selectEdge = useCallback(
         (id: string) => {
+            setSelectedAction("");
             setSelectedEdge(id);
             setSelectedNode("");
             if (!windowEdgeIds.has(id)) {
@@ -91,16 +111,57 @@ export function AbstractModelView({
     );
     const highlighted = useMemo(
         () => ({
-            nodes: new Set(scopedModel.nodes.map((node) => node.id)),
-            edges: new Set(scopedModel.edges.map((edge) => edge.id)),
+            nodes: new Set(scopedGraph.nodes.map((node) => node.id)),
+            edges: new Set(scopedGraph.edges.map((edge) => edge.id)),
         }),
-        [scopedModel],
+        [scopedGraph],
     );
     const visibleNodes = useMemo(
-        () => new Set(displayModel.nodes.map((node) => node.id)),
-        [displayModel],
+        () =>
+            new Set(
+                displayGraph.nodes
+                    .filter((node) => showAvailableActions || !node.outcomeActions)
+                    .map((node) => node.id),
+            ),
+        [displayGraph, showAvailableActions],
     );
-    const visibleEdges = useMemo(() => new Set(edges.map((edge) => edge.id)), [edges]);
+    const visibleEdges = useMemo(
+        () =>
+            new Set(
+                displayGraph.edges
+                    .filter(
+                        (edge) =>
+                            (showAvailableActions ||
+                                (!edge.outcomeAction && !edge.outcomeActions)) &&
+                            (showOrderLinks || edge.kind === "execution"),
+                    )
+                    .map((edge) => edge.id),
+            ),
+        [displayGraph, showAvailableActions, showOrderLinks],
+    );
+    const virtualAction = displayGraph.edges.find(
+        (item) => item.id === selectedEdge,
+    )?.outcomeAction;
+    const selectedOutcomes = showAvailableActions
+        ? (displayGraph.nodes.find((item) => item.id === selectedNode)?.outcomeActions ??
+          displayGraph.edges.find((item) => item.id === selectedEdge)?.outcomeActions)
+        : undefined;
+    const selectedOutcomeIds = new Set(selectedOutcomes);
+    const outcomeActions = selectedOutcomes
+        ? displayModel.actionEvidence?.actions.filter((item) => selectedOutcomeIds.has(item.id))
+        : undefined;
+    const action = displayModel.actionEvidence?.actions.find(
+        (item) => item.id === (selectedAction || (showAvailableActions ? virtualAction : "")),
+    );
+    function selectAction(id: string) {
+        setSelectedAction(id);
+        setSelectedNode("");
+        setSelectedEdge("");
+        const sourceNode = model.actionEvidence?.actions.find((item) => item.id === id)?.sourceNode;
+        if (sourceNode && !windowNodeIds.has(sourceNode)) {
+            setFocus({ node: sourceNode, edge: "" });
+        }
+    }
     const visibleNodeCount = window.nodes.filter((node) => visibleNodes.has(node.id)).length;
     const visibleEdgeCount = window.edges.filter((edge) => visibleEdges.has(edge.id)).length;
     const dimmedOpacity = (100 - options.dimOtherEvidence) / 100;
@@ -119,6 +180,9 @@ export function AbstractModelView({
             </p>
             <div className="abstract-model-summary">
                 <span>{model.nodes.length} states</span>
+                {model.actionEvidence && (
+                    <span>{model.actionEvidence.actions.length} abstract actions</span>
+                )}
                 <span>{model.counts.completedExecutions} completed executions</span>
                 <span>{model.counts.unlinkedExecutions} executions without a connected result</span>
                 <span>{model.counts.unmatchedNodes} unmatched observations</span>
@@ -168,6 +232,22 @@ export function AbstractModelView({
                     <label className="compact-toggle">
                         <input
                             type="checkbox"
+                            checked={showAvailableActions}
+                            onChange={(event) => setShowAvailableActions(event.target.checked)}
+                        />
+                        Show actions with unobserved outcomes
+                    </label>
+                    <label className="compact-toggle">
+                        <input
+                            type="checkbox"
+                            checked={groupUnknownOutcomes}
+                            onChange={(event) => setGroupUnknownOutcomes(event.target.checked)}
+                        />
+                        Group unknown-outcome links by state
+                    </label>
+                    <label className="compact-toggle">
+                        <input
+                            type="checkbox"
                             checked={showOrderLinks}
                             onChange={(event) => {
                                 setShowOrderLinks(event.target.checked);
@@ -212,11 +292,11 @@ export function AbstractModelView({
                     inspection below use this selection; model downloads retain the complete model.
                 </p>
             )}
-            {(visibleNodeCount < displayModel.nodes.length || visibleEdgeCount < edges.length) && (
+            {(visibleNodeCount < visibleNodes.size || visibleEdgeCount < visibleEdges.size) && (
                 <p className="notice">
-                    Graph window: {visibleNodeCount} of {displayModel.nodes.length} states and{" "}
-                    {visibleEdgeCount} of {edges.length} links. Select any state or transition in
-                    the lists to bring its endpoints into view.
+                    Graph window: {visibleNodeCount} of {visibleNodes.size} graph nodes and{" "}
+                    {visibleEdgeCount} of {visibleEdges.size} links. Select any state or transition
+                    in the lists to bring its endpoints into view.
                 </p>
             )}
             <div className="abstract-model-layout">
@@ -227,12 +307,12 @@ export function AbstractModelView({
                         <AbstractModelGraph
                             nodes={window.nodes}
                             edges={window.edges}
-                            displayModel={displayModel}
+                            displayModel={displayGraph}
                             visibleNodes={visibleNodes}
                             visibleEdges={visibleEdges}
                             options={options}
-                            selectedNode={node?.id ?? ""}
-                            selectedEdge={selected?.id ?? ""}
+                            selectedNode={visibleNodes.has(selectedNode) ? selectedNode : ""}
+                            selectedEdge={visibleEdges.has(selectedEdge) ? selectedEdge : ""}
                             highlightedNodes={highlighted.nodes}
                             highlightedEdges={highlighted.edges}
                             highlighting={highlighting}
@@ -241,6 +321,13 @@ export function AbstractModelView({
                             onSelectEdge={selectEdge}
                         />
                     </Suspense>
+                    <AbstractActionsPanel
+                        model={displayModel}
+                        selectedAction={action?.id ?? ""}
+                        onSelectAction={selectAction}
+                        onOpenObservation={onOpenObservation}
+                        onOpenExecution={onOpenExecution}
+                    />
                     <div className="abstract-model-lists">
                         <section className="abstraction-panel">
                             <h3>States ({displayModel.nodes.length})</h3>
@@ -360,6 +447,9 @@ export function AbstractModelView({
                     )}
                 </div>
                 <AbstractModelInspector
+                    action={action}
+                    outcomeActions={outcomeActions}
+                    onSelectAction={selectAction}
                     node={node}
                     edge={selected}
                     model={displayModel}

@@ -89,7 +89,7 @@ After previewing matches, users can switch between **Observation groups** and **
 
 Each observation group becomes a node, including groups with one observation. Each unmatched observation receives its own node and explanation. Every selected observation remains represented.
 
-Completed executions produce directed edges. Executions share an edge when their ordered endpoint nodes and exact original action type agree. Reverse directions remain separate; executions within one node become self-loops. Each edge retains source/run/execution references, with original action IDs, widget targets, and parameters available through those references. This summarizes action types while preserving the individual executions.
+Completed executions produce directed edges. With action rules, executions share an edge when their ordered endpoint nodes and abstract action agree. Without action rules, the exact original action type determines grouping. Reverse directions remain separate; executions within one node become self-loops. Each edge retains source/run/execution references, with original action IDs, widget targets, and parameters available through those references. This summarizes action types while preserving the individual executions.
 
 Observation-order links remain a separate dashed edge type and retain their original endpoint pairs within each run. They do not establish completed executions. Selected, submitted, rejected, incomplete, and unusable result executions remain in a separate list with their recorded status and an explanation.
 
@@ -140,3 +140,13 @@ In **Construct model**, **Model setup** contains the selected runs, preset, and 
 ## Shared abstraction implementation
 
 Rules, presets, grouping, and abstract-model construction come from the independent `testar-abstraction` package. Its repository owns the language documentation, core tests, and abstraction conformance cases. This dashboard supplies validated reconstructed evidence and retains worker cancellation, rendering, highlighting, and inspection.
+
+## Available actions in the constructed model
+
+The dashboard uses `testar-abstraction` tag `v0.3.1-pre` for optional action matching. A separate preset selects captured target role and name; custom rules can also select action-description properties and input values. The worker returns abstract actions with availability records, recorded and inferred execution relationships, ambiguity, and unmatched-action diagnostics. Downloads retain this data and the rules that produced it.
+
+The action list and inspector open original availability observations and action executions. Scope filtering uses their original source/run references and preserves ambiguity reported by the full model. It does not infer that every tool discovered an action or checked its properties.
+
+For reported available actions without a connected resulting-state transition, graph presentation adds a thin dashed amber link per abstract action leading to one shared **Outcome not observed** marker. These placeholders exist only in the graph presentation; model nodes, transition counts, and downloads retain the original constructed model. Showing, hiding, highlighting, or filtering these markers preserves the graph window and positions. Filtering does not create a new placeholder for an outcome known elsewhere in the full model.
+
+**Group unknown-outcome links by state** is unchecked by default, showing an individual thin link for each action. Checking it combines those links into one per source state, labelled with the number of actions without observed outcomes. Clicking a grouped link lists its contributing actions. Source/run highlighting and filtering use those actions' original availability records. This option changes the graph presentation; the constructed model and downloads retain individual action evidence.

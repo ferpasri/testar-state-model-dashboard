@@ -1,4 +1,4 @@
-import { openRenderingOptions } from "./model-controls";
+import { openModelSetup, openRenderingOptions } from "./model-controls";
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
@@ -323,4 +323,172 @@ test("building opens the model near the top and keeps setup and rendering settin
             .locator(".abstract-model-graph")
             .evaluate((element, original) => element === original, canvas),
     ).toBe(true);
+});
+
+test("inspects available actions and unobserved outcomes without exporting invented states", async ({
+    page,
+}, info) => {
+    const errors: string[] = [];
+    page.on("pageerror", (error) => errors.push(error.message));
+    const directory = sourceVariant(info, "available-action-source");
+    const filename = path.join(directory, "evidence.jsonl");
+    const events: EvidenceEvent[] = readFileSync(filename, "utf8")
+        .trim()
+        .split("\n")
+        .map((line) => JSON.parse(line));
+    const first = events.findIndex(({ event }) => event.event_type === "observation_recorded");
+    const entry = events[first].event;
+    if (entry.event_type !== "observation_recorded") {
+        throw new Error("The fixture must contain an observation.");
+    }
+    for (let index = 1; index <= 2; index++) {
+        const id = "unexecuted-action-" + index;
+        entry.data.recorded_state.widgets.push({
+            id,
+            parent: null,
+            properties: { "ui.role": "button", "ui.name": "Alternative " + index },
+        });
+        entry.data.available_actions.push({ action_description: id, target_widget: id });
+        events.splice(first, 0, {
+            schema_version: 3,
+            id: "event:" + id,
+            event: {
+                event_type: "action_described",
+                data: { id, action_type: "click", properties: {} },
+            },
+        });
+    }
+    writeFileSync(filename, events.map((event) => JSON.stringify(event)).join("\n") + "\n");
+    await openDerivedModel(page, [directory]);
+    await openModelSetup(page);
+    await page
+        .getByLabel("Abstraction preset", { exact: true })
+        .selectOption({ label: "Page address and available actions" });
+    await page.getByRole("button", { name: "Build model", exact: true }).click();
+    const actions = page.getByRole("region", { name: "Abstract actions", exact: true });
+    await expect(
+        actions.getByRole("heading", { name: "Abstract actions (4)", exact: true }),
+    ).toBeVisible();
+    await actions.getByRole("button", { name: /Alternative 1/ }).click();
+    const inspector = page.locator(".abstract-model-inspector");
+    await expect(
+        inspector.getByRole("heading", { name: "Abstract action", exact: true }),
+    ).toBeVisible();
+    await expect(inspector).toContainText("No matched execution in the selected evidence.");
+    await expect(inspector).toContainText("Reported availability (1)");
+    const graph = page.getByRole("region", { name: "Abstract model graph", exact: true });
+    const canvas = await graph.locator("canvas").first().elementHandle();
+    await page
+        .getByRole("checkbox", { name: "Show actions with unobserved outcomes", exact: true })
+        .uncheck();
+    await page
+        .getByRole("checkbox", { name: "Show actions with unobserved outcomes", exact: true })
+        .check();
+    expect(
+        await graph
+            .locator("canvas")
+            .first()
+            .evaluate((element, original) => element === original, canvas),
+    ).toBe(true);
+    const markerCounts = await page.locator(".abstract-model-graph").evaluate((element) => {
+        const cy = (
+            element as HTMLElement & {
+                _cyreg: {
+                    cy: {
+                        nodes: () => {
+                            filter: (selector: string) => {
+                                length: number;
+                                first: () => { emit: (event: string) => void };
+                            };
+                        };
+                        edges: () => { filter: (selector: string) => { length: number } };
+                    };
+                };
+            }
+        )._cyreg.cy;
+        const markers = cy.nodes().filter(".unobserved-outcome");
+        markers.first().emit("tap");
+        return { nodes: markers.length, links: cy.edges().filter(".available-link").length };
+    });
+    expect(markerCounts).toEqual({ nodes: 1, links: 3 });
+    const grouping = page.getByRole("checkbox", {
+        name: "Group unknown-outcome links by state",
+        exact: true,
+    });
+    await expect(grouping).not.toBeChecked();
+    await grouping.check();
+    const groupedCount = await page.locator(".abstract-model-graph").evaluate((element) => {
+        const cy = (
+            element as HTMLElement & {
+                _cyreg: {
+                    cy: {
+                        edges: () => {
+                            filter: (selector: string) => {
+                                length: number;
+                                first: () => { emit: (event: string) => void };
+                            };
+                        };
+                    };
+                };
+            }
+        )._cyreg.cy;
+        cy.edges().filter('.available-link[renderLabel *= "2 actions"]').first().emit("tap");
+        return cy.edges().filter(".available-link").length;
+    });
+    expect(groupedCount).toBe(2);
+    await expect(inspector.getByRole("button", { name: /Alternative 1/ })).toBeVisible();
+    await expect(inspector.getByRole("button", { name: /Alternative 2/ })).toBeVisible();
+    await grouping.uncheck();
+    await page.locator(".abstract-model-graph").evaluate((element) => {
+        const cy = (
+            element as HTMLElement & {
+                _cyreg: {
+                    cy: {
+                        nodes: () => {
+                            filter: (selector: string) => {
+                                first: () => { emit: (event: string) => void };
+                            };
+                        };
+                    };
+                };
+            }
+        )._cyreg.cy;
+        cy.nodes().filter(".unobserved-outcome").first().emit("tap");
+    });
+
+    await expect(
+        inspector.getByRole("heading", { name: "Outcome not observed", exact: true }),
+    ).toBeVisible();
+    await page.locator(".abstract-model-graph").evaluate((element) => {
+        const cy = (
+            element as HTMLElement & {
+                _cyreg: {
+                    cy: {
+                        edges: () => {
+                            filter: (selector: string) => {
+                                first: () => { emit: (event: string) => void };
+                            };
+                        };
+                    };
+                };
+            }
+        )._cyreg.cy;
+        cy.edges().filter('.available-link[edgeId *= "Alternative 1"]').first().emit("tap");
+    });
+    await expect(
+        inspector.getByRole("heading", { name: "Abstract action", exact: true }),
+    ).toBeVisible();
+    const pending = page.waitForEvent("download");
+    await page.getByRole("button", { name: "Download model", exact: true }).click();
+    const download = await pending;
+    const exported = JSON.parse(readFileSync((await download.path())!, "utf8")) as {
+        model: AbstractModel;
+    };
+    expect(exported.model.nodes).toHaveLength(2);
+    expect(exported.model.edges).toHaveLength(1);
+    expect(exported.model.actionEvidence!.actions).toHaveLength(4);
+    expect(exported.model.nodes.every((node) => node.members.length > 0)).toBe(true);
+    await inspector.getByRole("button", { name: "Open original observation", exact: true }).click();
+    await expect(page.locator(".details .detail-title h2")).toHaveText("Observation 1");
+    expect(errors).toEqual([]);
 });

@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import cytoscape from "cytoscape";
-import type { AbstractModelEdge, AbstractModel, AbstractModelNode } from "testar-abstraction";
+import type { ModelGraphEdge, ModelGraph, ModelGraphNode } from "./abstract-action-presentation";
 import type { ModelLayout, RenderingOptions } from "./AbstractModelRenderControls";
 
 interface Props {
-    nodes: AbstractModelNode[];
-    edges: AbstractModelEdge[];
-    displayModel: AbstractModel;
+    nodes: ModelGraphNode[];
+    edges: ModelGraphEdge[];
+    displayModel: ModelGraph;
     visibleNodes: Set<string>;
     visibleEdges: Set<string>;
     selectedNode: string;
@@ -81,12 +81,21 @@ export function AbstractModelGraph({
         }
         const identities = new Map(nodes.map((node, index) => [node.id, "dn" + index]));
         const elements: cytoscape.ElementDefinition[] = nodes.map((node, index) => ({
-            classes: node.unmatchedReason ? "unmatched" : "",
+            classes: node.outcomeActions
+                ? "unobserved-outcome"
+                : node.unmatchedReason
+                  ? "unmatched"
+                  : "",
             data: { id: "dn" + index, nodeId: node.id, renderLabel: "" },
         }));
         edges.forEach((edge, index) => {
             elements.push({
-                classes: edge.kind === "observation_order" ? "order-link" : "",
+                classes:
+                    edge.outcomeAction || edge.outcomeActions
+                        ? "available-link"
+                        : edge.kind === "observation_order"
+                          ? "order-link"
+                          : "",
                 data: {
                     id: "de" + index,
                     edgeId: edge.id,
@@ -159,6 +168,26 @@ export function AbstractModelGraph({
                     },
                 },
                 {
+                    selector: "node.unobserved-outcome",
+                    style: {
+                        shape: "ellipse",
+                        "background-color": "#f7f1e3",
+                        "border-color": "#9e865b",
+                        "border-style": "dashed",
+                    },
+                },
+                {
+                    selector: "edge.available-link",
+                    style: {
+                        width: 1,
+                        "arrow-scale": 0.65,
+                        "line-style": "dashed",
+                        "line-color": "#9e865b",
+                        "target-arrow-color": "#9e865b",
+                        "target-arrow-fill": "hollow",
+                    },
+                },
+                {
                     selector: "node:selected",
                     style: {
                         "background-color": "#17434a",
@@ -211,7 +240,9 @@ export function AbstractModelGraph({
                 element.data(
                     "renderLabel",
                     options.showStateLabels && node
-                        ? node.label.slice(0, 80) + "\n" + node.members.length + " observations"
+                        ? node.outcomeActions
+                            ? "Outcome not observed"
+                            : node.label.slice(0, 80) + "\n" + node.members.length + " observations"
                         : "",
                 );
             });
@@ -236,7 +267,7 @@ export function AbstractModelGraph({
                 if (options.showActionLabels) {
                     parts.push(name.slice(0, 45));
                 }
-                if (options.showExecutionCounts) {
+                if (options.showExecutionCounts && !edge?.outcomeAction && !edge?.outcomeActions) {
                     parts.push("(" + count + ")");
                 }
                 element.data("renderLabel", parts.join(" "));
@@ -323,6 +354,7 @@ export function AbstractModelGraph({
                 <span className="legend-dot" /> Abstract state
                 <span className="legend-line" /> Abstract transition
                 <span className="legend-order-link" /> Observation order only
+                <span>Dashed amber: available action / outcome not observed</span>
                 <span className="graph-hint">Scroll to zoom / Drag to pan</span>
             </div>
         </section>

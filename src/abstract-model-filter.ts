@@ -1,4 +1,5 @@
 import { runKey, type AbstractModel, type EvidenceReference } from "testar-abstraction";
+import { filterActionEvidence } from "./abstract-action-filter";
 import { edgeLabel } from "testar-abstraction";
 
 export interface AbstractModelScope {
@@ -49,6 +50,9 @@ export function filterAbstractModel(
         .filter((execution) => selected(execution.reference))
         .map((execution) => ({ ...execution, reference: { ...execution.reference } }));
     return {
+        ...(model.actionEvidence
+            ? { actionEvidence: filterActionEvidence(model.actionEvidence, selected) }
+            : {}),
         nodes,
         edges,
         unlinkedExecutions,

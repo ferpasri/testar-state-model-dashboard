@@ -33,7 +33,7 @@ flowchart LR
     Help -->|"click: 1 execution"| Login
 ```
 
-Solid arrows summarize completed recorded executions. Executions are combined into one arrow when their source node, destination node, and exact action type agree. The inspector retains each supporting execution, its parameters, and its original source and result observations. This grouping describes an action-type summary; the actions may still have different targets or parameters.
+Solid arrows summarize completed recorded executions. With action rules, executions are combined when their source state, destination state, and abstract action agree. Without action rules, their exact action type determines grouping. The inspector retains each supporting execution, its parameters, and its original source and result observations. This grouping describes an action-type summary; the actions may still have different targets or parameters.
 
 An execution can produce a loop when both observations belong to the same node. Dashed arrows show consecutive observations whose connecting action is unknown. Selected, rejected, or incomplete executions remain available for inspection without inventing a completed transition.
 
@@ -72,3 +72,19 @@ Action-grouping rules, similarity algorithms, and reusable workspaces are tracke
 Definitions are data interpreted by a fixed set of operations. Matching runs in a browser worker, supports cancellation, and uses bounded input and comparison sizes. It does not execute supplied JavaScript or contact captured URLs.
 
 The `testar-abstraction` repository owns the shared language, interpreter, model construction, and abstraction conformance cases. This dashboard owns the worker lifecycle, rule editor, visual inspection, and rendering controls.
+
+## Match actions and inspect unobserved outcomes
+
+Choose **Page address and available actions**, or add an `actions` section to custom rules, then click **Build model**. This preset compares page addresses and matches actions within each abstract state by their operation and captured target role and name. It tries `ui.name`, `ui.text`, and `ui.title` in that order for the target name. Inspect the JSON and select properties suitable for your evidence; tools can capture different information.
+
+For example, one trace reports five actions on a page. Another observation executes the fourth action, and another source executes the fifth. When the selected state and action values match, the model retains all five abstract actions and the supporting executions for the fourth and fifth. The first three have no matched execution in the selected evidence.
+
+The **Abstract actions** list shows availability records and execution attempts. Select an action to inspect its comparison values, original observations, and execution statuses. **Recorded availability link** means the execution selected the action description and widget reported in that observation. **Matched by abstraction rules** means the chosen values placed the execution in this group without that recorded availability link. Missing fields and ambiguous matches remain under **Actions needing more information**.
+
+Thin dashed amber links lead to one shared **Outcome not observed** marker for reported available actions without a connected resulting-state transition. Failed and unfinished attempts can still have such markers. These are visual placeholders, not abstract states or recorded transitions, and they do not increase state counts or appear in the downloaded model. Use **Show actions with unobserved outcomes** to hide or show them. Click a link to inspect its action, or click the shared marker to choose from its contributing actions.
+
+Source/run filtering limits availability and execution lists to original supporting records. A shared state remains visible when the selected evidence contributed an observation. An outcome known from another imported source remains known in the full model; filtering does not introduce new placeholders or move nodes. A missing execution in one source does not prove the action was never executed elsewhere, and matching actions does not extend oracle coverage.
+
+For custom target fields, operation normalization, and input-value comparisons, see the [shared action-rule reference](https://github.com/ferpasri/testar-abstraction/blob/v0.3.1-pre/docs/language.md#match-actions).
+
+**Group unknown-outcome links by state** is unchecked by default, showing an individual thin link for each action. Checking it combines those links into one per source state, labelled with the number of actions without observed outcomes. Clicking a grouped link lists its contributing actions. Source/run highlighting and filtering use those actions' original availability records. This option changes the graph presentation; the constructed model and downloads retain individual action evidence.

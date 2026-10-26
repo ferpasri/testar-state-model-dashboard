@@ -1,6 +1,5 @@
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import {
-    DEFAULT_PRESETS,
     parseAbstractionRules,
     runKey,
     type EvidenceReference,
@@ -9,6 +8,7 @@ import {
     type AbstractionPreview as Preview,
     type AbstractionProgress,
 } from "testar-abstraction";
+import { DASHBOARD_PRESETS } from "./action-presets";
 import { abstractionInputs } from "./abstraction-input";
 import { ObservationGroups } from "./ObservationGroups";
 import { formatJson } from "./evidence/common";
@@ -41,7 +41,7 @@ function downloadJson(name: string, value: unknown) {
 export function AbstractionPreview({ sources, active, onOpenObservation, onOpenExecution }: Props) {
     const [preset, setPreset] = useState("0");
     const [setupOpen, setSetupOpen] = useState(true);
-    const [definition, setDefinition] = useState(() => formatJson(DEFAULT_PRESETS[0].definition));
+    const [definition, setDefinition] = useState(() => formatJson(DASHBOARD_PRESETS[0].definition));
     const [excludedRuns, setExcludedRuns] = useState<Set<string>>(new Set());
     const [runLimit, setRunLimit] = useState(50);
     const [preview, setPreview] = useState<Preview | null>(null);
@@ -177,7 +177,7 @@ export function AbstractionPreview({ sources, active, onOpenObservation, onOpenE
                         {selectedRuns.length} runs ·{" "}
                         {preset === "custom"
                             ? "Custom rules"
-                            : DEFAULT_PRESETS[Number(preset)].name}
+                            : DASHBOARD_PRESETS[Number(preset)].name}
                     </span>
                 </summary>
                 <p>
@@ -229,12 +229,13 @@ export function AbstractionPreview({ sources, active, onOpenObservation, onOpenE
                                     setPreset(event.target.value);
                                     setDefinition(
                                         formatJson(
-                                            DEFAULT_PRESETS[Number(event.target.value)].definition,
+                                            DASHBOARD_PRESETS[Number(event.target.value)]
+                                                .definition,
                                         ),
                                     );
                                 }}
                             >
-                                {DEFAULT_PRESETS.map((item, index) => (
+                                {DASHBOARD_PRESETS.map((item, index) => (
                                     <option value={index} key={item.name}>
                                         {item.name}
                                     </option>
@@ -247,7 +248,7 @@ export function AbstractionPreview({ sources, active, onOpenObservation, onOpenE
                         <p className="muted">
                             {preset === "custom"
                                 ? "The JSON definition controls which captured values are compared."
-                                : DEFAULT_PRESETS[Number(preset)].description}
+                                : DASHBOARD_PRESETS[Number(preset)].description}
                         </p>
                         <details>
                             <summary>Edit abstraction rules (JSON)</summary>

@@ -20,9 +20,9 @@ export function evidenceLabel(
     );
 }
 
-export function abstractModelWindow(
-    nodes: AbstractModelNode[],
-    edges: AbstractModelEdge[],
+export function abstractModelWindow<Node extends AbstractModelNode, Edge extends AbstractModelEdge>(
+    nodes: Node[],
+    edges: Edge[],
     selectedNode: string,
     selectedEdge: string,
 ) {

@@ -38,7 +38,10 @@
 - [x] Offer layout, label, count, and dimming controls while preserving positions during highlighting and filtering.
 - [x] Filter an abstract-model view and its inspector to a source/run contribution while retaining the full model.
 - [x] Export the abstract model with its abstraction rules, input fingerprints, and original references.
-- [ ] Integrate separately configurable action grouping when available in `testar-abstraction`.
+- [x] Integrate configurable action grouping from `testar-abstraction` tag `v0.3.1-pre`.
+- [x] Inspect abstract-action availability, execution support, original records, and unmatched diagnostics.
+- [x] Render one shared unobserved-outcome marker with thin action links, separately from abstract states and transitions, retaining source/run support.
+- [ ] Switch the dependency to the final abstraction tag after the pre-release integration has been reviewed.
 - [ ] Expose additional normalization and similarity options as the shared abstraction package adds them.
 - [ ] Provide a visual rule editor and richer explanations of individual normalization steps.
 - [ ] Broaden matching examples and performance measurements using recordings from different producers.

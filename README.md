@@ -74,6 +74,6 @@ In **Construct model**, **Model setup** contains the selected runs, preset, and 
 
 ## Shared abstraction package
 
-Model construction imports `testar-abstraction` from `github:ferpasri/testar-abstraction#v0.3.0`. The lockfile pins the resolved Git commit. npm runs the dependency's `prepare` script to build its JavaScript and TypeScript declarations; keep installation scripts enabled.
+Model construction imports `testar-abstraction` from `github:ferpasri/testar-abstraction#v0.3.1-pre`. This pre-release tag lets the dashboard test the action-matching integration before the final abstraction release. The lockfile pins the resolved Git commit. npm runs the dependency's `prepare` script to build its JavaScript and TypeScript declarations; keep installation scripts enabled.
 
 The package owns abstraction rules, presets, evidence indexing, abstract-model construction, and abstraction conformance cases. The dashboard owns file import, workers, graphs, layouts, highlighting, and inspectors. Other browser or Node.js consumers can use the same package.

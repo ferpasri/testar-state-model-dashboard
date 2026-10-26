@@ -1,5 +1,6 @@
 import { useState } from "react";
 import type {
+    AbstractAction,
     AbstractModelEdge,
     AbstractModel,
     AbstractModelNode,
@@ -10,9 +11,14 @@ import type {
 import type { ImportedSource } from "./evidence/import";
 import { displayValue } from "./evidence/common";
 import { evidenceLabel } from "./abstract-model-presentation";
+import { actionLabel } from "./abstract-action-presentation";
+import { AbstractActionInspector } from "./AbstractActionInspector";
 import { Screenshot } from "./Details";
 
 interface Props {
+    action?: AbstractAction;
+    outcomeActions?: AbstractAction[];
+    onSelectAction: (id: string) => void;
     node?: AbstractModelNode;
     edge?: AbstractModelEdge;
     model: AbstractModel;
@@ -28,7 +34,34 @@ export function AbstractModelInspector(props: Props) {
     return (
         <aside className="abstraction-panel abstract-model-inspector">
             <span className="eyebrow">MODEL INSPECTOR</span>
-            {edge ? (
+            {props.outcomeActions ? (
+                <>
+                    <h2>Outcome not observed</h2>
+                    <p className="muted">
+                        These available actions have no connected resulting-state evidence in the
+                        model. This shared marker is not an abstract state.
+                    </p>
+                    <div className="abstract-model-list">
+                        {props.outcomeActions.slice(0, 50).map((item) => (
+                            <button
+                                className="abstract-model-node"
+                                key={item.id}
+                                onClick={() => props.onSelectAction(item.id)}
+                            >
+                                {actionLabel(item)}
+                            </button>
+                        ))}
+                    </div>
+                    {props.outcomeActions.length > 50 && (
+                        <p className="muted">
+                            Showing the first 50 actions. Use the abstract actions list to inspect
+                            more.
+                        </p>
+                    )}
+                </>
+            ) : props.action ? (
+                <AbstractActionInspector key={props.action.id} {...props} action={props.action} />
+            ) : edge ? (
                 <EdgeInspector key={edge.id} {...props} edge={edge} />
             ) : node ? (
                 <NodeInspector key={node.id} {...props} node={node} />
