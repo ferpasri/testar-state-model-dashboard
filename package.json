@@ -17,7 +17,7 @@
         "cytoscape": "3.34.4",
         "react": "19.3.1",
         "react-dom": "19.3.1",
-        "testar-abstraction": "github:ferpasri/testar-abstraction#v0.3.1",
+        "testar-abstraction": "git+https://github.com/ferpasri/testar-abstraction-typescript.git#v0.3.2",
         "zod": "4.6.7"
     },
     "devDependencies": {

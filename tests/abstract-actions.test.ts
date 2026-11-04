@@ -1,4 +1,6 @@
 import { readFileSync } from "node:fs";
+import path from "node:path";
+import { abstractionActionCase } from "./support";
 import { describe, expect, it } from "vitest";
 import {
     buildAbstractModel,
@@ -17,11 +19,8 @@ type WireEvidence = {
     [K in keyof EvidenceInput]: Array<EvidenceInput[K] extends Map<string, infer V> ? V : never>;
 };
 async function fixture(name = "available-and-executed") {
-    const directory = new URL(
-        `../node_modules/testar-abstraction/conformance/action-cases/${name}/`,
-        import.meta.url,
-    );
-    const input = JSON.parse(readFileSync(new URL("input.json", directory), "utf8")) as {
+    const directory = abstractionActionCase(name);
+    const input = JSON.parse(readFileSync(path.join(directory, "input.json"), "utf8")) as {
         sources: Array<{ id: string; label: string; fingerprint: string; evidence: WireEvidence }>;
         selected_runs: Array<{ source: string; run: string }>;
     };
@@ -37,7 +36,7 @@ async function fixture(name = "available-and-executed") {
             ),
         },
     }));
-    const rules = parseAbstractionRules(readFileSync(new URL("rules.json", directory), "utf8"));
+    const rules = parseAbstractionRules(readFileSync(path.join(directory, "rules.json"), "utf8"));
     const preview = await previewAbstraction(
         sources,
         rules,

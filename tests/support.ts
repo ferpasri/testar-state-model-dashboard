@@ -2,10 +2,15 @@ import { createHash } from "node:crypto";
 import { readFileSync, readdirSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { INTERPRETER_VERSION } from "testar-abstraction";
 
 const repository = fileURLToPath(new URL("../", import.meta.url));
-export function sharedCases(): string[] {
-    const cache = path.join(repository, ".cache", "specs");
+function preparedRoot(dataset: "evidence" | "abstraction"): string {
+    const cache = path.join(
+        repository,
+        ".cache",
+        dataset === "evidence" ? "specs" : "abstraction-specs",
+    );
     let marker: { directory: string; files: Record<string, string> };
     try {
         marker = JSON.parse(readFileSync(path.join(cache, "current.json"), "utf8"));
@@ -31,9 +36,35 @@ export function sharedCases(): string[] {
             throw new Error("Conformance cache changed; repeat npm run prepare:conformance.");
         }
     }
+    return root;
+}
+export function sharedCases(): string[] {
+    const root = preparedRoot("evidence");
     return readdirSync(path.join(root, "conformance", "cases"), { withFileTypes: true })
         .filter((entry) => entry.isDirectory())
         .map((entry) => path.join(root, "conformance", "cases", entry.name));
+}
+export function abstractionActionCase(name: string): string {
+    const root = preparedRoot("abstraction");
+    const manifest = JSON.parse(
+        readFileSync(path.join(root, "conformance", "manifest.json"), "utf8"),
+    );
+    if (
+        manifest.case_format_version !== 1 ||
+        manifest.evidence_schema !== 3 ||
+        manifest.rule_language !== 1 ||
+        manifest.behavior_version !== INTERPRETER_VERSION
+    ) {
+        throw new Error("Unsupported shared abstraction conformance identifiers.");
+    }
+    if (
+        !/^[a-z0-9-]+$/u.test(name) ||
+        manifest.suites?.actions?.directory !== "action-cases" ||
+        !manifest.suites.actions.cases.includes(name)
+    ) {
+        throw new Error("Unknown abstraction action case: " + name);
+    }
+    return path.join(root, "conformance", "action-cases", name);
 }
 export function fixtureFiles(
     directory: string,

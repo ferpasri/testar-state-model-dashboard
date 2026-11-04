@@ -46,10 +46,10 @@ npm test
 npm run test:browser
 ```
 
-Preparation downloads the newest published specs release, including prereleases, into ignored `.cache/specs/` and records the release and file hashes. Unit tests use that prepared data offline. Browser tests build and exercise the production application. Repeat preparation when verifying a newer specs release.
+Preparation downloads the newest published evidence and abstraction specs releases, including prereleases, into ignored `.cache/specs/` and `.cache/abstraction-specs/` directories and records each release and its file hashes. Unit tests use that prepared data offline. Browser tests build and exercise the production application. Repeat preparation when verifying a newer specs release.
 
 ## Dependencies and compatibility
 
 [package.json](package.json) records the application version, supported Node.js versions, and selected abstraction tag; the lockfile pins installed dependencies. Evidence compatibility is validated by [the input schemas](src/evidence/schema.ts), separately from software release versions. Related projects share their first two release numbers and advance patches independently.
 
-The shared abstraction package owns rule interpretation and model construction. The dashboard owns import, workers, rendering, filtering, and inspection. Its language reference and examples are maintained in [testar-abstraction](https://github.com/ferpasri/testar-abstraction).
+The [TypeScript abstraction package](https://github.com/ferpasri/testar-abstraction-typescript) implements rule interpretation and model construction. The dashboard owns import, workers, rendering, filtering, and inspection. The language reference, examples, and conformance cases are maintained in [TESTAR Abstraction Specs](https://github.com/ferpasri/testar-abstraction-specs).

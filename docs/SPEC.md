@@ -58,7 +58,7 @@ OracleResultView lists also filter reports by supplied assessment phase: during 
 
 The **Construct model** view compares selected runs from the imported sources. Its shared evidence index scopes identities by source and by the record's run or observation where applicable. Reused IDs in independent sources remain separate. The index counts selected observations, widgets, referenced action descriptions, and executions.
 
-The worker passes selected reconstructed evidence and the chosen preset or JSON definition to `testar-abstraction`. The package owns property selection, normalization, widget and action comparisons, unmatched diagnostics, and processing bounds. See its [language reference](https://github.com/ferpasri/testar-abstraction/blob/main/docs/language.md) and [processing specification](https://github.com/ferpasri/testar-abstraction/blob/main/docs/SPEC.md#processing).
+The worker passes selected reconstructed evidence and the chosen preset or JSON definition to `testar-abstraction`. The package owns property selection, normalization, widget and action comparisons, unmatched diagnostics, and processing bounds. See its [language reference](https://github.com/ferpasri/testar-abstraction-specs/blob/main/docs/language.md) and [processing specification](https://github.com/ferpasri/testar-abstraction-specs/blob/main/docs/SPEC.md#processing-limits).
 
 The dashboard's built-in presets and editing workflow are described in the [model-construction guide](abstraction.md). Original values remain available in source inspection.
 

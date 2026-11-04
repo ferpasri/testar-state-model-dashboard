@@ -11,7 +11,7 @@ Open **Construct model**, select runs under **Model setup**, and choose a preset
 | Page and widget structure          | Address, title, and selected widget role, name/title, and tag descriptions.                                                      |
 | Page address and available actions | Address plus action operation and captured target role and name. Target names try `ui.name`, `ui.text`, and `ui.title` in order. |
 
-Inspect the JSON to confirm that property keys exist in the selected evidence. Missing required values produce unmatched explanations. URL session parameters remain significant unless an explicit transform removes them. Rule syntax and interpretation belong to the [shared language reference](https://github.com/ferpasri/testar-abstraction/blob/main/docs/language.md); worked policies are in the [shared examples](https://github.com/ferpasri/testar-abstraction/blob/main/docs/examples.md).
+Inspect the JSON to confirm that property keys exist in the selected evidence. Missing required values produce unmatched explanations. URL session parameters remain significant unless an explicit transform removes them. Rule syntax and interpretation belong to the [shared language reference](https://github.com/ferpasri/testar-abstraction-specs/blob/main/docs/language.md); worked policies are in the [shared examples](https://github.com/ferpasri/testar-abstraction-specs/blob/main/docs/examples.md).
 
 ## Inspect the graph
 

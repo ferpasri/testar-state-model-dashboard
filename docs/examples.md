@@ -1,6 +1,6 @@
 # Model-inspection examples
 
-These examples illustrate rule choices and presentation. The [dashboard specification](SPEC.md) defines behavior; the abstraction package owns [rule examples](https://github.com/ferpasri/testar-abstraction/blob/main/docs/examples.md) and conformance cases.
+These examples illustrate rule choices and presentation. The [dashboard specification](SPEC.md) defines behavior; the shared abstraction specs own [rule examples](https://github.com/ferpasri/testar-abstraction-specs/blob/main/docs/examples.md) and conformance cases.
 
 ## A loan result at the same address
 
