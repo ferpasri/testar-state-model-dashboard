@@ -1,3 +1,4 @@
+import { JsonNumber, parseJson as parseEvidenceJson } from "testar-evidence";
 import { openModelSetup } from "./model-controls";
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
 import { readFileSync } from "node:fs";
@@ -266,4 +267,44 @@ test("uses title-aware defaults and configurable session normalization without c
         .click();
     await page.getByRole("button", { name: "Observation", exact: true }).click();
     await expect(page.locator(".details")).toContainText(secondAddress);
+});
+
+test("keeps precise decimals distinct through import, inspection, model construction, and download", async ({
+    page,
+}, info) => {
+    const values = ["0.10000000000000001", "0.10000000000000002", "1.0000000000000001e-1"];
+    const directories = values.map((value, index) => {
+        const directory = info.outputPath("precise-" + index);
+        const { manifest, events } = readEvidenceCase("initial-observation");
+        for (const { event } of events) {
+            if (event.event_type === "observation_recorded") {
+                event.data.recorded_state.properties["measurement"] = new JsonNumber(value);
+                event.data.artifacts = [];
+            }
+        }
+        writeEvidenceCase(directory, manifest, events);
+        return directory;
+    });
+    await importSources(page, directories, null);
+    await page.getByRole("button", { name: "Trace inspection", exact: true }).click();
+    await expect(page.locator(".details")).toContainText(values[2]);
+    await page.getByRole("button", { name: "Construct model", exact: true }).click();
+    await editRules(page, {
+        version: 1,
+        name: "Exact measurement",
+        state: [{ name: "measurement", keys: ["measurement"], required: true }],
+        capture: "ignore",
+    });
+    await previewMatches(page);
+    await page.getByLabel("Group filter", { exact: true }).selectOption("all");
+    await expect(page.locator(".match-group")).toHaveCount(2);
+
+    const downloadPromise = page.waitForEvent("download");
+    await page.getByRole("button", { name: "Download preview", exact: true }).click();
+    const download = await downloadPromise;
+    const text = readFileSync((await download.path())!, "utf8");
+    expect(text).toContain("0.10000000000000001");
+    expect(text).toContain("0.10000000000000002");
+    const preview = parseEvidenceJson(text) as { groups: Array<{ members: unknown[] }> };
+    expect(preview.groups.map((group) => group.members.length).sort()).toEqual([1, 2]);
 });

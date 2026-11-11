@@ -1,12 +1,12 @@
 import {
-    buildAbstractModel,
+    constructAbstractModel,
     parseAbstractionRules,
-    previewAbstraction,
     type AnalysisSource,
 } from "testar-abstraction";
+import { decodeWorkerValues, encodeWorkerValues, type WorkerValues } from "./worker-values";
 
 interface AbstractionRequest {
-    sources: AnalysisSource[];
+    sources: WorkerValues<AnalysisSource[]>;
     definition: string;
     selectedRuns: string[];
 }
@@ -14,22 +14,13 @@ interface AbstractionRequest {
 self.onmessage = async (message: MessageEvent<AbstractionRequest>) => {
     try {
         const { sources, definition, selectedRuns } = message.data;
-        const preview = await previewAbstraction(
-            sources,
+        const result = await constructAbstractModel(
+            decodeWorkerValues(sources),
             parseAbstractionRules(definition),
             selectedRuns,
             (progress) => self.postMessage({ kind: "progress", progress }),
         );
-        self.postMessage({
-            kind: "progress",
-            progress: {
-                stage: "Building abstract model",
-                completed: 0,
-                total: preview.counts.observations,
-            },
-        });
-        const model = buildAbstractModel(preview, sources);
-        self.postMessage({ kind: "complete", preview, model });
+        self.postMessage({ kind: "complete", result: encodeWorkerValues(result) });
     } catch (error) {
         self.postMessage({
             kind: "error",

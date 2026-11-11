@@ -1,3 +1,12 @@
+import { JsonNumber } from "testar-evidence";
+import {
+    constructAbstractModel,
+    parseAbstractionRules,
+    runKey,
+    type AnalysisSource,
+} from "testar-abstraction";
+import { encodeWorkerValues, decodeWorkerValues } from "../src/worker-values";
+import { abstractionStateCase } from "./support";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { expect, test, vi } from "vitest";
@@ -150,4 +159,61 @@ test("verifies repeated screenshot references using one file read", async () => 
 test("renders unusual property objects as data", () => {
     const value = parseJson('{"toString":null,"valueOf":null}');
     expect(displayValue(value)).toContain('"toString": null');
+});
+
+test("preserves precise decimals and keeps ordinary text objects distinct during worker transfer", () => {
+    const original = parseJson(
+        '{"first":0.10000000000000001,"second":0.10000000000000002,"ordinary":{"text":"0.10000000000000001"}}',
+    ) as Record<string, unknown>;
+    const data = { properties: original, lookup: new Map([["measurement", original.first]]) };
+    const restored = decodeWorkerValues(structuredClone(encodeWorkerValues(data)));
+    expect(restored.properties.first).toBeInstanceOf(JsonNumber);
+    expect(restored.lookup.get("measurement")).toBe(restored.properties.first);
+    expect(restored.properties.ordinary).not.toBeInstanceOf(JsonNumber);
+    expect(canonical(restored.properties)).toBe(canonical(original));
+    expect(displayValue(restored.properties.first)).toBe("0.10000000000000001");
+    expect(formatJson(restored.properties)).toContain('"second": 0.10000000000000002');
+    expect(canonical(original.first)).not.toBe(canonical(original.second));
+    expect(canonical(parseJson("1.000"))).toBe(canonical(1));
+    expect(canonical(parseJson("1e1000000"))).toBe("1e1000000");
+    expect(() => parseJson('{"value":1,"value":2}')).toThrow();
+});
+
+test("worker-transferred exact numbers produce the groups defined by the shared abstraction case", async () => {
+    const directory = abstractionStateCase("precise-numeric-values");
+    const input = parseJson(readFileSync(path.join(directory, "input.json"), "utf8")) as any;
+    const sources = input.sources.map((source: any) => ({
+        ...source,
+        evidence: {
+            runs: new Map(source.evidence.runs.map((record: any) => [record.id, record])),
+            sequences: new Map(source.evidence.sequences.map((record: any) => [record.id, record])),
+            observations: new Map(
+                source.evidence.observations.map((record: any) => [record.id, record]),
+            ),
+            actions: new Map(source.evidence.actions.map((record: any) => [record.id, record])),
+            executions: new Map(
+                source.evidence.executions.map((record: any) => [record.execution.id, record]),
+            ),
+        },
+    })) as AnalysisSource[];
+    const result = await constructAbstractModel(
+        decodeWorkerValues(structuredClone(encodeWorkerValues(sources))),
+        parseAbstractionRules(readFileSync(path.join(directory, "rules.json"), "utf8")),
+        input.selected_runs.map((reference: { source: string; run: string }) =>
+            runKey(reference.source, reference.run),
+        ),
+    );
+    const restored = decodeWorkerValues(structuredClone(encodeWorkerValues(result)));
+    const expected = JSON.parse(readFileSync(path.join(directory, "expected.json"), "utf8"));
+    const groups = (values: unknown[][]) =>
+        values
+            .map((group) => group.map(canonical).sort())
+            .map(canonical)
+            .sort();
+    expect(
+        groups(
+            restored.preview.groups.map((group) => group.members.map((member) => member.reference)),
+        ),
+    ).toEqual(groups(expected.groups));
+    expect(restored.model.counts.observations).toBe(input.sources.length);
 });

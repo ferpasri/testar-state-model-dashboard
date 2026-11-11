@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { JsonNumber } from "testar-evidence";
 
 export const identifier = z
     .string()
@@ -43,7 +44,7 @@ const oracle = z.strictObject({
 });
 const oracle_severity = z.strictObject({
     label: identifier,
-    value: z.number().finite().optional(),
+    value: z.union([z.number().finite(), z.bigint(), z.instanceof(JsonNumber)]).optional(),
 });
 const observed_value = z.union([
     z.strictObject({

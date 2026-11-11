@@ -1,3 +1,4 @@
+import { parseJson, stringifyJson } from "testar-evidence";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import type { EvidenceEvent } from "../../src/evidence/schema";
@@ -17,7 +18,7 @@ export function readEvidenceCase(name: string): { manifest: Buffer; events: Evid
         events: readFileSync(path.join(directory, "evidence.jsonl"), "utf8")
             .trimEnd()
             .split("\n")
-            .map((line) => JSON.parse(line)),
+            .map((line) => parseJson(line) as EvidenceEvent),
     };
 }
 
@@ -30,6 +31,6 @@ export function writeEvidenceCase(
     writeFileSync(path.join(directory, "manifest.json"), manifest);
     writeFileSync(
         path.join(directory, "evidence.jsonl"),
-        events.map((event) => JSON.stringify(event)).join("\n") + "\n",
+        events.map((event) => stringifyJson(event)).join("\n") + "\n",
     );
 }

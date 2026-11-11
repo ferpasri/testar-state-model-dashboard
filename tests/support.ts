@@ -44,7 +44,7 @@ export function sharedCases(): string[] {
         .filter((entry) => entry.isDirectory())
         .map((entry) => path.join(root, "conformance", "cases", entry.name));
 }
-export function abstractionActionCase(name: string): string {
+function abstractionCase(name: string, suite: "states" | "actions"): string {
     const root = preparedRoot("abstraction");
     const manifest = JSON.parse(
         readFileSync(path.join(root, "conformance", "manifest.json"), "utf8"),
@@ -59,12 +59,18 @@ export function abstractionActionCase(name: string): string {
     }
     if (
         !/^[a-z0-9-]+$/u.test(name) ||
-        manifest.suites?.actions?.directory !== "action-cases" ||
-        !manifest.suites.actions.cases.includes(name)
+        manifest.suites?.[suite]?.directory !== (suite === "actions" ? "action-cases" : "cases") ||
+        !manifest.suites[suite].cases.includes(name)
     ) {
-        throw new Error("Unknown abstraction action case: " + name);
+        throw new Error("Unknown abstraction case: " + name);
     }
-    return path.join(root, "conformance", "action-cases", name);
+    return path.join(root, "conformance", manifest.suites[suite].directory, name);
+}
+export function abstractionActionCase(name: string): string {
+    return abstractionCase(name, "actions");
+}
+export function abstractionStateCase(name: string): string {
+    return abstractionCase(name, "states");
 }
 export function fixtureFiles(
     directory: string,

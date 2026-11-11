@@ -4,6 +4,8 @@
 
 The dashboard accepts a selected evidence directory, or a parent directory containing several traces. A trace contains `manifest.json`, `evidence.jsonl`, and its referenced artifacts. Users can add sources to an existing workspace and remove them individually. Folder names can describe the application, objective, and recording time; import uses the manifest and event records. A completed action connects its before and resulting observations to form a state-action-state trace.
 
+Integer and decimal values retain their exact values through import, worker messages, inspection, abstraction, and JSON downloads.
+
 Import validates the current evidence schema. The shared format is defined by the specs project; dashboard release numbers identify application releases separately.
 
 An import worker reads UTF-8 JSONL incrementally, validates record shapes, reconstructs the execution history from events in order, and verifies referenced artifact hashes. A complete final line ends with a newline. Failures identify the affected file and relevant record line. File-access failures identify the affected manifest, evidence log, or artifact and explain how to retry. A file that exists on disk can still be unavailable to the browser, including at long Windows paths. Copying the complete trace to a shorter local path preserves its contents and source fingerprint.

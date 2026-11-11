@@ -1,3 +1,4 @@
+import { decodeWorkerValues } from "./worker-values";
 import { testRunForSequence, compareIndex } from "./evidence/reconstructed-evidence";
 import {
     lazy,
@@ -167,7 +168,7 @@ export function App() {
                 setError(result.message);
                 cancel();
             } else if (result.kind === "complete") {
-                const loaded = result.sources as ImportedSource[];
+                const loaded = decodeWorkerValues<ImportedSource[]>(result.sources);
                 const combined = Array.from(
                     new Map(
                         [...sourcesRef.current, ...loaded].map((item) => [item.id, item]),

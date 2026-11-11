@@ -1,3 +1,4 @@
+import { decodeWorkerValues, encodeWorkerValues } from "./worker-values";
 import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import {
     parseAbstractionRules,
@@ -121,8 +122,12 @@ export function AbstractionPreview({ sources, active, onOpenObservation, onOpenE
                 if (result.kind === "progress") {
                     setProgress(result.progress);
                 } else if (result.kind === "complete") {
-                    setPreview(result.preview);
-                    setModel(result.model);
+                    const constructed = decodeWorkerValues<{
+                        preview: Preview;
+                        model: AbstractModel;
+                    }>(result.result);
+                    setPreview(constructed.preview);
+                    setModel(constructed.model);
                     setAbstractModelOpened(true);
                     setResultView("model");
                     setSetupOpen(false);
@@ -139,7 +144,7 @@ export function AbstractionPreview({ sources, active, onOpenObservation, onOpenE
                 }
             };
             setBusy(true);
-            instance.postMessage({ sources: inputs, definition, selectedRuns });
+            instance.postMessage({ sources: encodeWorkerValues(inputs), definition, selectedRuns });
         } catch (failure) {
             cancel();
             setError(

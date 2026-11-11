@@ -76,7 +76,9 @@ export function normalized(evidence: ReconstructedEvidence) {
 
 for (const directory of sharedCases()) {
     describe(path.basename(directory), () => {
-        const expected = JSON.parse(readFileSync(path.join(directory, "expected.json"), "utf8"));
+        const expected = parseJson(
+            readFileSync(path.join(directory, "expected.json"), "utf8"),
+        ) as any;
         test("reconstructs the released evidence and matches the expected result", () => {
             const manifest = manifestSchema.parse(
                 JSON.parse(readFileSync(path.join(directory, "manifest.json"), "utf8")),

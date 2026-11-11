@@ -1,3 +1,5 @@
+import { JsonNumber, parseJson as parseEvidenceJson } from "testar-evidence";
+
 export class EvidenceError extends Error {
     constructor(
         message: string,
@@ -25,9 +27,37 @@ export function safePath(path: string): string {
     );
     return path;
 }
+/** Compare exact numeric values consistently across integer, decimal, and exponent spellings. */
+function canonicalNumber(value: number | bigint | JsonNumber): string {
+    const text = value instanceof JsonNumber ? value.text : String(value);
+    const match = /^(-?)(\d+)(?:\.(\d+))?(?:[eE]([+-]?\d+))?$/u.exec(text);
+    requireEvidence(match, "JSON numbers must be finite.");
+    const digits = (match[2] + (match[3] ?? "")).replace(/^0+/u, "");
+    if (digits.length === 0) {
+        return "0";
+    }
+    const coefficient = digits.replace(/0+$/u, "");
+    const exponent =
+        BigInt(match[4] ?? "0") -
+        BigInt((match[3] ?? "").length) +
+        BigInt(digits.length - coefficient.length);
+    if (exponent >= 0n && BigInt(coefficient.length) + exponent <= 1024n) {
+        return match[1] + coefficient + "0".repeat(Number(exponent));
+    }
+    if (exponent < 0n && exponent >= -1024n && coefficient.length <= 1024) {
+        const point = coefficient.length + Number(exponent);
+        return (
+            match[1] +
+            (point > 0
+                ? coefficient.slice(0, point) + "." + coefficient.slice(point)
+                : "0." + "0".repeat(-point) + coefficient)
+        );
+    }
+    return match[1] + coefficient + "e" + exponent;
+}
 export function canonical(value: unknown): string {
-    if (typeof value === "bigint") {
-        return value.toString();
+    if (typeof value === "number" || typeof value === "bigint" || value instanceof JsonNumber) {
+        return canonicalNumber(value);
     }
     if (Array.isArray(value)) {
         return "[" + value.map(canonical).join(",") + "]";
@@ -46,6 +76,9 @@ export function canonical(value: unknown): string {
     return JSON.stringify(value);
 }
 export function formatJson(value: unknown, depth = 0): string {
+    if (value instanceof JsonNumber) {
+        return value.text;
+    }
     const padding = "    ".repeat(depth);
     const childPadding = padding + "    ";
     if (Array.isArray(value)) {
@@ -80,18 +113,7 @@ export function formatJson(value: unknown, depth = 0): string {
 export function parseJson(text: string): unknown {
     let value: unknown;
     try {
-        value = JSON.parse(text, (_key: string, item: unknown, context?: { source?: string }) => {
-            if (typeof item === "number" && Number.isInteger(item) && !Number.isSafeInteger(item)) {
-                requireEvidence(
-                    context?.source,
-                    "This browser cannot preserve large JSON integers.",
-                );
-                if (/^-?\d+$/u.test(context.source)) {
-                    return BigInt(context.source);
-                }
-            }
-            return item;
-        });
+        value = parseEvidenceJson(text);
     } catch (error) {
         if (error instanceof EvidenceError) {
             throw error;
@@ -102,7 +124,11 @@ export function parseJson(text: string): unknown {
     while (pending.length > 0) {
         const item = pending.pop()!;
         requireEvidence(item.depth <= 48, "JSON exceeds the nesting limit of 48.");
-        if (item.value !== null && typeof item.value === "object") {
+        if (
+            item.value !== null &&
+            typeof item.value === "object" &&
+            !(item.value instanceof JsonNumber)
+        ) {
             for (const child of Object.values(item.value)) {
                 pending.push({ value: child, depth: item.depth + 1 });
             }
