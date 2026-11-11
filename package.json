@@ -1,6 +1,6 @@
 {
     "name": "testar-state-model-dashboard",
-    "version": "0.3.0",
+    "version": "0.3.1",
     "private": true,
     "type": "module",
     "scripts": {
@@ -11,7 +11,9 @@
         "test:browser": "npm run build && playwright test",
         "prepare:conformance": "tsx tools/prepare-conformance.ts",
         "format": "prettier --write .",
-        "format:check": "prettier --check ."
+        "format:check": "prettier --check .",
+        "package:release": "npm run build && tsx tools/package-release.ts",
+        "test:release": "tsx tools/verify-release.ts"
     },
     "dependencies": {
         "cytoscape": "3.34.4",

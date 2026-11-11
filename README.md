@@ -30,6 +30,19 @@ npm run preview
 
 The preview server supports local review. For hosted or self-hosted use, deploy `dist/` through a static server with the [required security headers](docs/SPEC.md#privacy-and-limits).
 
+## Release package
+
+```sh
+npm run package:release
+npm run test:release
+```
+
+Packaging builds the application and creates a versioned ZIP and SHA-256 checksum in `target/release/`. The archive contains `dist/`, the license, README, and `release.json` with the application version and entry file. Asset paths are relative, so the application can be served under `/dashboard/`.
+
+TESTAR Server can download the ZIP and checksum from a pinned GitHub release, verify the checksum, extract the archive, and serve its `dist/` directory. The package contains the compiled application and its bundled browser dependencies.
+
+The release workflow verifies the application and attaches these files when a GitHub release is published. The release tag must match `v` followed by the version in `package.json`. Release verification uses the shared data and Chromium prepared below.
+
 ## Verification
 
 Prepare the shared data and browser:

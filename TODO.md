@@ -61,9 +61,10 @@
 
 ## Distribution and maintenance
 
-- [ ] Choose and add the project license.
-- [ ] Add CI checks, dependency review, and a release process following the shared version policy.
-- [ ] Provide static hosting and self-hosting instructions with appropriate security headers.
+- [x] Choose and add the project license.
+- [x] Add CI checks and a verified static release package.
+- [ ] Add dependency review.
+- [x] Provide static hosting and self-hosting instructions with appropriate security headers.
 - [ ] Broaden browser coverage and benchmark larger evidence sets before increasing import limits.
 - [ ] Add bounded archive import when packaging requirements are agreed.
 
