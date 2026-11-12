@@ -21,6 +21,7 @@ export interface ImportedSource {
     fingerprint: string;
     evidence: ReconstructedEvidence;
     artifacts: Map<string, File>;
+    traceFiles?: Map<string, File>;
     bytes: number;
 }
 export interface Progress {
@@ -226,6 +227,11 @@ async function importTrace(
             reconstructor.evidence.manifest.evidence_id,
         evidence: reconstructor.evidence,
         artifacts,
+        traceFiles: new Map([
+            ["manifest.json", manifestFile],
+            ["evidence.jsonl", evidence],
+            ...artifacts,
+        ]),
         bytes:
             evidence.size +
             manifestFile.size +

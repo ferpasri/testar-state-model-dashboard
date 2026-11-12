@@ -11,6 +11,7 @@ import {
 } from "testar-abstraction";
 import { DASHBOARD_PRESETS } from "./action-presets";
 import { abstractionInputs } from "./abstraction-input";
+import { ExploreAndEnrich } from "./ExploreAndEnrich";
 import { ObservationGroups } from "./ObservationGroups";
 import { formatJson } from "./evidence/common";
 import type { ImportedSource } from "./evidence/import";
@@ -339,6 +340,7 @@ export function AbstractionPreview({ sources, active, onOpenObservation, onOpenE
                                 Download model
                             </button>
                         )}
+                        {model && <ExploreAndEnrich preview={preview} sources={sources} />}
                     </nav>
                     <div hidden={resultView !== "groups"}>
                         <ObservationGroups

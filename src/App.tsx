@@ -247,7 +247,10 @@ export function App() {
                 )}
                 <div className="topbar-actions">
                     <span className="local-badge">
-                        <span /> Files stay in this browser
+                        <span />{" "}
+                        {document.querySelector('meta[name="testar-server"]')
+                            ? "Evidence transfer requires confirmation"
+                            : "Files stay in this browser"}
                     </span>
                     {sources.length > 0 && (
                         <button

@@ -96,7 +96,7 @@ The graph displays a window of up to 500 graph nodes and 2,000 links. Highlighti
 
 ## Privacy and limits
 
-Runtime processing stays in the browser. Imported URLs and strings are displayed as evidence. Screenshots use local object URLs, which are revoked when released. Production policy restricts network connections and external resources; the application bundles its scripts and styles. Configure the hosting server to send the security headers defined in the Vite preview configuration on every response, including worker scripts. Local development permits its loopback WebSocket for live updates.
+Evidence inspection and model construction stay in the browser. Imported URLs and strings are displayed as evidence. Screenshots use local object URLs, which are revoked when released. Production policy restricts network connections and external resources; the application bundles its scripts and styles. Configure the hosting server to send the security headers defined in the Vite preview configuration on every response, including worker scripts. Local development permits its loopback WebSocket for live updates.
 
 Import verifies artifact hashes and checks PNG/JPEG headers and pixel limits before preview. The browser performs image decoding and reports preview failures. Other artifact media types retain their references without active previews.
 
@@ -133,3 +133,7 @@ The action list and inspector open original availability observations and action
 For reported available actions without a connected resulting-state transition, graph presentation adds a thin dashed amber link per abstract action leading to one shared **Outcome not observed** marker. These placeholders exist only in the graph presentation; model nodes, transition counts, and downloads retain the original constructed model. Showing, hiding, highlighting, or filtering these markers preserves the graph window and positions. Filtering does not create a new placeholder for an outcome known elsewhere in the full model.
 
 **Group unknown-outcome links by state** is unchecked by default, showing an individual thin link for each action. Checking it combines those links into one per source state, labelled with the number of actions without observed outcomes. Clicking a grouped link lists its contributing actions. Source/run highlighting and filtering use those actions' original availability records. This option changes the graph presentation; the constructed model and downloads retain individual action evidence.
+
+## Optional exploration handoff
+
+A host can enable TESTAR Server integration with a `testar-server` meta marker. After model construction, **Explore and enrich** asks for confirmation before opening the same-origin explorer in a new tab and transferring original evidence files and the selected abstraction definition. Both windows check the message origin and the sending window. The dashboard keeps its model in memory. Standalone hosting offers inspection and construction without this control. See the [handoff workflow](abstraction.md#explore-and-enrich).

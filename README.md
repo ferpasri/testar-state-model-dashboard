@@ -2,7 +2,7 @@
 
 A browser application for inspecting GUI test evidence and constructing abstract models from multiple recorded traces. Inputs follow [TESTAR Evidence specs](https://github.com/ferpasri/testar-evidence-specs).
 
-Selected evidence is validated and processed locally in browser workers. The server supplies application files. The workspace, selected observations, and constructed model remain in memory until the page reloads.
+Selected evidence is validated and processed locally in browser workers. The server supplies application files. When hosted by TESTAR Server, the optional **Explore and enrich** action explicitly transfers selected traces after confirmation; see the [model-construction guide](docs/abstraction.md#explore-and-enrich). The workspace, selected observations, and constructed model remain in memory until the page reloads.
 
 ## Run locally
 

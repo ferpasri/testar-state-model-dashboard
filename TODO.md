@@ -73,3 +73,9 @@
 - [x] Extract algorithms, presets, language documentation, and core tests to `testar-abstraction`.
 - [x] Import the shared package while retaining dashboard workers and rendering.
 - [x] Pin the selected abstraction release and resolved commit in the dependency manifest and lockfile.
+
+## Exploration integration
+
+- [x] Offer explicit evidence and abstraction-rule transfer to TESTAR Server in a new explorer tab.
+- [ ] Support selecting individual runs within a multi-run trace for exploration.
+- [ ] Load completed exploration evidence back into the dashboard without manual folder import.

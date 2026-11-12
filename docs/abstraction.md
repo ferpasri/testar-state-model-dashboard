@@ -35,6 +35,16 @@ Highlighting and filtering use reported availability and execution references. F
 
 An abstract path can combine different runs. Open supporting records before treating it as one recorded sequence. Grouping does not transfer oracle coverage between observations or establish that one tool discovered actions reported by another.
 
-**Download model** saves the full model, rules, interpreter identity, input scope, and supporting references. **Download preview** saves comparison explanations and memberships; **Download rules** saves the JSON definition. Exports can contain captured values. Original screenshots and full records remain in their evidence folders.
+**Download preview** (`abstraction-preview.json`) explains how observations were compared: the selected rules and inputs, groups of matching observations, compared values, and unmatched observations. It answers which observations were grouped and why.
+
+**Download model** (`abstract-model.json`) includes the rules, interpreter identity, input scope, and the constructed abstract states, actions, transitions, and references to supporting evidence. It describes the connected model built from those groups. **Download rules** saves only the JSON definition. Exports can contain captured values. Original screenshots and full records remain in their evidence folders.
 
 See [examples](examples.md) for how rule choices affect a loan-result state and cross-source action support.
+
+## Explore and enrich
+
+When hosted by TESTAR Server, a constructed model offers **Explore and enrich**. After confirmation, it opens the explorer in a new tab and copies the original selected traces and the model's abstraction rules to the server. Review the application URL, limits, inputs, and preparation before starting. If the selected definition contains only state rules, the explorer adds its default action rules and identifies that addition for review. The original dashboard tab retains its constructed model.
+
+The transfer includes recorded values and referenced artifacts, so review the evidence before sharing it with a server. All runs in each transferred trace must be selected. The explorer uses these original records to rebuild and update its own model; it does not execute the downloaded graph. New executions create new evidence traces.
+
+Standalone static hosting retains browser-local inspection and model construction. The exploration button appears only when the hosting server explicitly enables this integration.

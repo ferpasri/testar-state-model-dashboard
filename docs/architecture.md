@@ -34,3 +34,5 @@ Record identities remain scoped to their imported source. Abstraction adds relat
 Runtime assets are bundled. Imported labels and URLs are treated as data; evidence processing does not fetch captured application URLs. Browser network tests verify this boundary. Detailed import, rendering, privacy, and resource behavior is defined in the [dashboard specification](SPEC.md).
 
 The [TESTAR Evidence specs](https://github.com/ferpasri/testar-evidence-specs) own the input contract. [TESTAR Abstraction Specs](https://github.com/ferpasri/testar-abstraction-specs) defines language semantics and shared cases; the [TypeScript package](https://github.com/ferpasri/testar-abstraction-typescript) implements them. [TODO](../TODO.md) tracks additional workspace and document-association capabilities.
+
+When hosted by TESTAR Server, explicit exploration handoff passes original evidence and abstraction rules to a new same-origin explorer tab. This is separate from browser-local import and model construction; see the [handoff workflow](abstraction.md#explore-and-enrich).
