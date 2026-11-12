@@ -48,3 +48,11 @@ When hosted by TESTAR Server, a constructed model offers **Explore and enrich**.
 The transfer includes recorded values and referenced artifacts, so review the evidence before sharing it with a server. All runs in each transferred trace must be selected. The explorer uses these original records to rebuild and update its own model; it does not execute the downloaded graph. New executions create new evidence traces.
 
 Standalone static hosting retains browser-local inspection and model construction. The exploration button appears only when the hosting server explicitly enables this integration.
+
+## Load and update server evidence
+
+**Load server traces** lists evidence registered in TESTAR Server. Select the traces and load them directly; the same validation and artifact-hash checks used for folder imports apply. Files are read through authenticated server URLs into browser memory, so long Windows disk paths do not pass through the browser folder picker.
+
+After exploration, **Update dashboard model** returns new trace references to the original dashboard tab. It keeps the existing evidence and abstraction rules, loads the new traces, and rebuilds the model. An independently opened explorer offers **Inspect traces in dashboard**, which opens a new dashboard tab with those traces selected. No ZIP extraction is required.
+
+**Copy folder path** in the explorer shows where a trace is stored on the server. Folder imports remain available for standalone dashboard use; browser file-access limitations can still apply to those manually selected folders.

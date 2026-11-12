@@ -137,3 +137,9 @@ For reported available actions without a connected resulting-state transition, g
 ## Optional exploration handoff
 
 A host can enable TESTAR Server integration with a `testar-server` meta marker. After model construction, **Explore and enrich** asks for confirmation before opening the same-origin explorer in a new tab and transferring original evidence files and the selected abstraction definition. Both windows check the message origin and the sending window. The dashboard keeps its model in memory. Standalone hosting offers inspection and construction without this control. See the [handoff workflow](abstraction.md#explore-and-enrich).
+
+## Server-backed trace inspection
+
+The optional server integration lists registered traces and downloads their original files through authenticated same-origin endpoints. Download sizes and file counts are bounded by the existing import limits; downloaded files pass through the normal import worker. This avoids browser directory-picker access to Windows disk paths.
+
+`server-capabilities.json` advertises direct trace loading to the host. A dashboard link can select registered trace IDs through its `traces` query parameter. An explorer opened by this dashboard can also return trace IDs through checked same-origin window messaging. The dashboard keeps its original evidence, imports the additional traces, and rebuilds with its current definition and run selection. Unrelated windows cannot request this update.

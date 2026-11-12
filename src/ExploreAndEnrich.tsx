@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { AbstractionPreview } from "testar-abstraction";
+import { registerExplorer } from "./server-evidence";
 import { formatJson } from "./evidence/common";
 import type { ImportedSource } from "./evidence/import";
 
@@ -57,6 +58,7 @@ export function ExploreAndEnrich({
             if (!explorer) {
                 throw new Error("Allow a new tab to open the explorer.");
             }
+            registerExplorer(explorer);
             setWaiting(true);
             const stop = () => {
                 window.removeEventListener("message", receive);

@@ -78,4 +78,5 @@
 
 - [x] Offer explicit evidence and abstraction-rule transfer to TESTAR Server in a new explorer tab.
 - [ ] Support selecting individual runs within a multi-run trace for exploration.
-- [ ] Load completed exploration evidence back into the dashboard without manual folder import.
+- [x] Load completed exploration evidence back into the dashboard without manual folder import.
+- [x] List registered server traces and load screenshots through authenticated URLs, bypassing Windows directory-picker paths.

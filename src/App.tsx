@@ -4,6 +4,7 @@ import {
     lazy,
     Suspense,
     useCallback,
+    useEffect,
     useMemo,
     useRef,
     useState,
@@ -20,6 +21,9 @@ const AbstractionPreview = lazy(() =>
 const Graph = lazy(() => import("./Graph").then((module) => ({ default: module.Graph })));
 import type { ImportedSource, Progress } from "./evidence/import";
 import { displayValue } from "./evidence/common";
+import { ServerTraces } from "./ServerTraces";
+import { knownExplorer, readServerTraces, serverHosted, traceIdentifiers } from "./server-evidence";
+import type { InputFile } from "./evidence/import";
 import { version } from "../package.json";
 
 export function App() {
@@ -39,6 +43,9 @@ export function App() {
     sourcesRef.current = sources;
     const fileInput = useRef<HTMLInputElement>(null);
     const worker = useRef<Worker | null>(null);
+    const downloads = useRef<AbortController | null>(null);
+    const [rebuildRequest, setRebuildRequest] = useState(0);
+    const serverLoad = useRef<(ids: string[], rebuild?: boolean) => void>(() => {});
     const source = sources.find((item) => item.id === sourceId);
     const observations = useMemo(
         () =>
@@ -141,6 +148,8 @@ export function App() {
         setExecutionId(reference.execution);
     }
     function cancel() {
+        downloads.current?.abort();
+        downloads.current = null;
         worker.current?.terminate();
         worker.current = null;
         setBusy(false);
@@ -150,6 +159,14 @@ export function App() {
         if (!files || files.length === 0) {
             return;
         }
+        loadInputs(
+            Array.from(files, (file) => ({ path: file.webkitRelativePath || file.name, file })),
+        );
+        if (fileInput.current) {
+            fileInput.current.value = "";
+        }
+    }
+    function loadInputs(files: InputFile[], rebuild = false) {
         cancel();
         setError("");
         setBusy(true);
@@ -187,7 +204,13 @@ export function App() {
                 setSources(combined);
                 const first = loaded[0];
                 if (first) {
-                    selectRun(first, first.evidence.runs.keys().next().value ?? "");
+                    if (rebuild) {
+                        setAbstractionOpened(true);
+                        setView("construction");
+                        setRebuildRequest((previous) => previous + 1);
+                    } else {
+                        selectRun(first, first.evidence.runs.keys().next().value ?? "");
+                    }
                 }
                 cancel();
             }
@@ -198,13 +221,70 @@ export function App() {
             );
             cancel();
         };
-        instance.postMessage(
-            Array.from(files, (file) => ({ path: file.webkitRelativePath || file.name, file })),
-        );
-        if (fileInput.current) {
-            fileInput.current.value = "";
+        instance.postMessage(files);
+    }
+    async function loadServer(ids: string[], rebuild = false) {
+        cancel();
+        const controller = new AbortController();
+        downloads.current = controller;
+        setError("");
+        setBusy(true);
+        setProgress({ stage: "Loading server evidence", completed: 0, total: 0 });
+        try {
+            const files = await readServerTraces(ids, controller.signal, setProgress);
+            if (downloads.current === controller) {
+                loadInputs(files, rebuild);
+            }
+        } catch (failure) {
+            if (downloads.current === controller) {
+                setError(failure instanceof Error ? failure.message : "Cannot load server traces.");
+                cancel();
+            }
         }
     }
+    serverLoad.current = loadServer;
+    useEffect(() => {
+        if (!serverHosted()) {
+            return;
+        }
+        const receive = (message: MessageEvent) => {
+            if (
+                message.origin !== window.location.origin ||
+                !knownExplorer(message.source) ||
+                message.data?.type !== "testar:load-traces"
+            ) {
+                return;
+            }
+            try {
+                const ids = traceIdentifiers(message.data.traceIds);
+                serverLoad.current(ids, true);
+                (message.source as Window).postMessage(
+                    { type: "testar:loading-traces", requestId: message.data.requestId },
+                    window.location.origin,
+                );
+            } catch (failure) {
+                setError(
+                    failure instanceof Error ? failure.message : "Invalid server trace selection.",
+                );
+            }
+        };
+        window.addEventListener("message", receive);
+        const requested = new URL(window.location.href).searchParams.get("traces");
+        if (requested) {
+            try {
+                serverLoad.current(traceIdentifiers(requested.split(",")));
+            } catch (failure) {
+                setError(
+                    failure instanceof Error ? failure.message : "Invalid server trace selection.",
+                );
+            }
+        }
+        return () => {
+            window.removeEventListener("message", receive);
+            downloads.current?.abort();
+            worker.current?.terminate();
+        };
+    }, []);
     function remove(id: string) {
         setSources((previous) => previous.filter((item) => item.id !== id));
         if (id === sourceId) {
@@ -246,6 +326,7 @@ export function App() {
                     </nav>
                 )}
                 <div className="topbar-actions">
+                    <ServerTraces disabled={busy} onLoad={(ids) => loadServer(ids)} />
                     <span className="local-badge">
                         <span />{" "}
                         {document.querySelector('meta[name="testar-server"]')
@@ -423,6 +504,7 @@ export function App() {
                                 }
                             >
                                 <AbstractionPreview
+                                    rebuildRequest={rebuildRequest}
                                     sources={sources}
                                     active={view === "construction"}
                                     onOpenObservation={openOriginalObservation}

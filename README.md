@@ -13,6 +13,8 @@ npm ci
 npm run dev
 ```
 
+When hosted by TESTAR Server, **Load server traces** lists saved evidence and loads it directly, including screenshots. The explorer offers **Inspect in dashboard** and **Update dashboard model** after execution. This workflow avoids Windows folder-picker path limits.
+
 Open the local URL printed by Vite. Choose **Open evidence folder** and select a trace containing `manifest.json`, `evidence.jsonl`, and referenced artifacts, or a parent containing several traces.
 
 **Trace inspection** shows runs, sequences, observations, widgets, screenshots, action executions, oracle results, and recorded coverage. **Construct model** selects runs and abstraction rules, builds a combined graph, and retains links to original evidence. Switching between views preserves the current selections and model.

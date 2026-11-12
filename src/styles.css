@@ -1443,3 +1443,35 @@ textarea:focus-visible {
         grid-template-columns: minmax(0, 1fr);
     }
 }
+
+.server-traces {
+    width: min(760px, calc(100vw - 40px));
+    max-height: 85vh;
+    border: 1px solid var(--border, #cbd5c8);
+    border-radius: 10px;
+    padding: 24px;
+    color: inherit;
+    background: var(--surface, #fafaf7);
+}
+.server-traces::backdrop {
+    background: rgb(0 0 0 / 35%);
+}
+.server-trace-list {
+    display: grid;
+    gap: 12px;
+    max-height: 48vh;
+    overflow: auto;
+    margin: 20px 0;
+}
+.server-trace-list label {
+    align-items: start;
+    overflow-wrap: anywhere;
+}
+.server-trace-list small {
+    display: block;
+    font-size: 14px;
+}
+.server-trace-actions {
+    display: flex;
+    gap: 12px;
+}

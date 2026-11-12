@@ -21,6 +21,7 @@ const AbstractModelView = lazy(() =>
 );
 
 interface Props {
+    rebuildRequest?: number;
     sources: ImportedSource[];
     active: boolean;
     onOpenObservation: (reference: EvidenceReference) => void;
@@ -40,7 +41,13 @@ function downloadJson(name: string, value: unknown) {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-export function AbstractionPreview({ sources, active, onOpenObservation, onOpenExecution }: Props) {
+export function AbstractionPreview({
+    sources,
+    active,
+    onOpenObservation,
+    onOpenExecution,
+    rebuildRequest = 0,
+}: Props) {
     const [preset, setPreset] = useState("0");
     const [setupOpen, setSetupOpen] = useState(true);
     const [definition, setDefinition] = useState(() => formatJson(DASHBOARD_PRESETS[0].definition));
@@ -155,6 +162,12 @@ export function AbstractionPreview({ sources, active, onOpenObservation, onOpenE
             );
         }
     }
+
+    useEffect(() => {
+        if (rebuildRequest > 0) {
+            start();
+        }
+    }, [rebuildRequest]);
 
     function downloadRules() {
         try {
